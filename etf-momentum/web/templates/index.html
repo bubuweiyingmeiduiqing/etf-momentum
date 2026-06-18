@@ -1,0 +1,84 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ETF Momentum - 量化交易辅助系统</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <meta http-equiv="refresh" content="300">
+</head>
+<body>
+    <div class="container">
+        <!-- 顶部导航 -->
+        <header>
+            <h1>📈 ETF Momentum</h1>
+            <span class="subtitle">量化交易辅助系统</span>
+            <div class="stats">
+                <span class="stat-item">📊 监控标的: {{ symbols|length }}</span>
+                <span class="stat-item warn">🔔 今日告警: {{ alert_count }}</span>
+                <span class="stat-item">💡 今日信号: {{ signal_count }}</span>
+            </div>
+        </header>
+
+        <!-- 标的行情概览 -->
+        <section class="card">
+            <h2>📋 监控标的</h2>
+            <div class="table-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>代码</th>
+                            <th>名称</th>
+                            <th>最新价</th>
+                            <th>涨跌幅</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for s in symbols %}
+                        <tr>
+                            <td><a href="/symbol/{{ s.symbol }}"><strong>{{ s.symbol }}</strong></a></td>
+                            <td>{{ s.name or '-' }}</td>
+                            <td>-</td>
+                            <td>-</td>
+                            <td><a class="btn-small" href="/symbol/{{ s.symbol }}">详情</a></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- 告警列表 -->
+        <section class="card">
+            <h2>🔔 最近告警</h2>
+            <div class="table-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>时间</th>
+                            <th>代码</th>
+                            <th>类型</th>
+                            <th>级别</th>
+                            <th>消息</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for a in alerts %}
+                        <tr class="alert-{{ a.level | lower }}">
+                            <td>{{ a.timestamp }}</td>
+                            <td>{{ a.symbol }}</td>
+                            <td>{{ a.alert_type }}</td>
+                            <td><span class="badge badge-{{ a.level | lower }}">{{ a.level }}</span></td>
+                            <td>{{ a.message }}</td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="5" class="empty">暂无告警 🎉</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </div>
+</body>
+</html>

@@ -1,0 +1,69 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ symbol }} - 详情 | ETF Momentum</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📈 {{ symbol }}</h1>
+            <a href="/" class="btn">← 返回仪表盘</a>
+        </header>
+
+        {% if quote %}
+        <section class="card">
+            <h2>最新行情</h2>
+            <div class="quote-grid">
+                <div class="quote-item"><span class="label">代码</span><span class="value">{{ quote.symbol }}</span></div>
+                <div class="quote-item"><span class="label">名称</span><span class="value">{{ quote.name or '-' }}</span></div>
+                <div class="quote-item"><span class="label">最新价</span><span class="value">{{ quote.close }}</span></div>
+                <div class="quote-item"><span class="label">涨跌幅</span><span class="value">{{ quote.change_pct }}%</span></div>
+                <div class="quote-item"><span class="label">最高</span><span class="value">{{ quote.high }}</span></div>
+                <div class="quote-item"><span class="label">最低</span><span class="value">{{ quote.low }}</span></div>
+                <div class="quote-item"><span class="label">开盘</span><span class="value">{{ quote.open }}</span></div>
+                <div class="quote-item"><span class="label">成交量</span><span class="value">{{ quote.volume }}</span></div>
+            </div>
+        </section>
+        {% else %}
+        <section class="card empty-state">
+            <p>暂无 {{ symbol }} 的行情数据，请等待数据采集。</p>
+        </section>
+        {% endif %}
+
+        {% if quotes %}
+        <section class="card">
+            <h2>近期走势</h2>
+            <div class="table-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>时间</th>
+                            <th>开盘</th>
+                            <th>最高</th>
+                            <th>最低</th>
+                            <th>收盘</th>
+                            <th>涨跌幅</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for q in quotes %}
+                        <tr>
+                            <td>{{ q.timestamp }}</td>
+                            <td>{{ q.open }}</td>
+                            <td>{{ q.high }}</td>
+                            <td>{{ q.low }}</td>
+                            <td>{{ q.close }}</td>
+                            <td>{{ q.change_pct }}%</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+        {% endif %}
+    </div>
+</body>
+</html>

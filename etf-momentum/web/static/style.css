@@ -1,0 +1,171 @@
+﻿/* ETF Momentum - 样式表 */
+
+:root {
+    --bg: #0f1117;
+    --card-bg: #1a1d27;
+    --border: #2a2d3a;
+    --text: #e1e4e8;
+    --text-secondary: #8b949e;
+    --accent: #58a6ff;
+    --green: #3fb950;
+    --red: #f85149;
+    --warn: #d2991d;
+    --info: #58a6ff;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+}
+
+.container {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 24px 20px;
+}
+
+/* 顶部 */
+header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 28px;
+}
+
+header h1 {
+    font-size: 1.6rem;
+    font-weight: 700;
+}
+
+.subtitle {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+.stats {
+    margin-left: auto;
+    display: flex;
+    gap: 20px;
+    font-size: 0.9rem;
+}
+
+.stat-item.warn { color: var(--warn); }
+
+/* 卡片 */
+.card {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 24px;
+    margin-bottom: 24px;
+}
+
+.card h2 {
+    font-size: 1.1rem;
+    margin-bottom: 16px;
+    color: var(--text);
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 10px;
+}
+
+/* 表格 */
+.table-wrapper { overflow-x: auto; }
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+}
+
+th, td {
+    padding: 10px 14px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+}
+
+th {
+    color: var(--text-secondary);
+    font-weight: 600;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+td a { color: var(--accent); text-decoration: none; }
+td a:hover { text-decoration: underline; }
+
+tr:hover { background: rgba(255,255,255,0.02); }
+
+.empty { text-align: center; color: var(--text-secondary); padding: 30px; }
+
+/* 徽章 */
+.badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.badge-info { background: rgba(88,166,255,0.15); color: var(--info); }
+.badge-warn { background: rgba(210,153,29,0.15); color: var(--warn); }
+.badge-critical { background: rgba(248,81,73,0.15); color: var(--red); }
+
+/* 按钮 */
+.btn, .btn-small {
+    display: inline-block;
+    background: var(--accent);
+    color: #fff;
+    padding: 8px 16px;
+    border-radius: 6px;
+    text-decoration: none;
+    font-weight: 500;
+    font-size: 0.9rem;
+    border: none;
+    cursor: pointer;
+}
+
+.btn:hover, .btn-small:hover { opacity: 0.85; text-decoration: none; }
+
+.btn-small { padding: 4px 10px; font-size: 0.8rem; }
+
+/* 行情网格 */
+.quote-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 16px;
+}
+
+.quote-item {
+    padding: 12px;
+    background: rgba(255,255,255,0.03);
+    border-radius: 6px;
+}
+
+.quote-item .label {
+    display: block;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    margin-bottom: 4px;
+}
+
+.quote-item .value {
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
+.empty-state {
+    text-align: center;
+    color: var(--text-secondary);
+    padding: 40px;
+}
+
+/* 告警行颜色 */
+.alert-warn { border-left: 3px solid var(--warn); }
+.alert-critical { border-left: 3px solid var(--red); }
