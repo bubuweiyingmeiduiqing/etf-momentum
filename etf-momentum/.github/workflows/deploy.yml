@@ -1,0 +1,40 @@
+﻿# ============================================================
+# GitHub Actions: 推送代码后自动部署到云服务器
+# ============================================================
+# 使用方法:
+#   1. 在 GitHub 仓库 Settings -> Secrets 中添加:
+#      - SSH_HOST: 你的云服务器 IP
+#      - SSH_USER: SSH 用户名（如 root 或 ubuntu）
+#      - SSH_KEY:  私钥内容（cat ~/.ssh/id_rsa）
+#   2. Push 到 master 分支即可自动触发
+# ============================================================
+
+name: Deploy to Cloud Server
+
+on:
+  push:
+    branches: [master, main]
+  workflow_dispatch:       # 也支持手动触发
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            cd /opt/etf-momentum
+            git fetch origin
+            git checkout master
+            git reset --hard origin/master
+            source venv/bin/activate
+            pip install -r requirements.txt --quiet
+            sudo supervisorctl restart etf-momentum
+            echo "Deployed: $(git log -1 --oneline)"
