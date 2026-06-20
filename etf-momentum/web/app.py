@@ -114,6 +114,34 @@ def health_metrics():
     })
 
 
+
+@app.route("/health/sources")
+def health_sources():
+    """Data source health check."""
+    import sys, os
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    try:
+        from core.fetcher import DataFetcher
+        fc = config.get("fetcher", {})
+        fetcher = DataFetcher(config)
+        stats = fetcher.get_source_stats()
+        return jsonify({"status": "ok", "sources": stats})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route("/health/sources/reset", methods=["POST"])
+def health_sources_reset():
+    """Reset all circuit breakers."""
+    import sys, os
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    try:
+        from core.fetcher import DataFetcher
+        fetcher = DataFetcher(config)
+        fetcher.reset_sources()
+        return jsonify({"status": "ok", "message": "All circuit breakers reset"})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
 # ---- 错误处理 ----
 @app.errorhandler(500)
 def handle_500(e):
