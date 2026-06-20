@@ -1,51 +1,73 @@
-﻿"""Telegram 通知模块"""
+"""Telegram notification via HTTP Bot API (no async dependency)"""
 
-import logging
-from typing import Optional
+import logging, json, time
+import requests
 
 logger = logging.getLogger(__name__)
 
 
 class TelegramNotifier:
-    """通过 Telegram Bot 发送通知消息。"""
 
     def __init__(self, config: dict):
-        self.config = config.get("telegram", {})
-        self.enabled = self.config.get("enabled", False)
-        self.token = self.config.get("bot_token", "")
-        self.chat_id = self.config.get("chat_id", "")
-        self._bot = None
+        tg = config.get("telegram", {})
+        self.enabled = tg.get("enabled", False)
+        self.token = tg.get("bot_token", "")
+        self.chat_id = str(tg.get("chat_id", ""))
+        self.max_retries = tg.get("max_retries", 3)
+        self.api_base = f"https://api.telegram.org/bot{self.token}" if self.token else ""
 
-    def _get_bot(self):
-        if self._bot is not None:
-            return self._bot
-        if not self.token or not self.chat_id:
-            return None
-        try:
-            from telegram import Bot
-            self._bot = Bot(token=self.token)
-            return self._bot
-        except ImportError:
-            logger.warning("python-telegram-bot 未安装，Telegram 通知不可用")
-            return None
-        except Exception as e:
-            logger.error(f"Telegram Bot 初始化失败: {e}")
-            return None
+    def send(self, message: str, parse_mode: str = "HTML") -> bool:
+        if not self.enabled or not self.token or not self.chat_id:
+            return False
+        url = f"{self.api_base}/sendMessage"
+        payload = {
+            "chat_id": self.chat_id,
+            "text": message[:4096],
+            "parse_mode": parse_mode,
+        }
+        for attempt in range(1, self.max_retries + 1):
+            try:
+                resp = requests.post(url, json=payload, timeout=15)
+                data = resp.json()
+                if resp.status_code == 200 and data.get("ok"):
+                    return True
+                err = data.get("description", f"HTTP {resp.status_code}")
+                if resp.status_code == 429 and attempt < self.max_retries:
+                    retry_after = data.get("parameters", {}).get("retry_after", 5)
+                    logger.warning("Telegram rate limited, retry after %ds", retry_after)
+                    time.sleep(retry_after)
+                    continue
+                logger.error("Telegram send failed: %s", err)
+                return False
+            except Exception as e:
+                if attempt < self.max_retries:
+                    logger.warning("Telegram attempt %d/%d failed: %s", attempt, self.max_retries, e)
+                    time.sleep(2 * attempt)
+                else:
+                    logger.error("Telegram send exhausted: %s", e)
+                    return False
+        return False
 
-    def send(self, message: str) -> bool:
-        """发送文本消息。"""
-        if not self.enabled:
-            return False
-        bot = self._get_bot()
-        if bot is None:
-            return False
+    def send_alert(self, symbol: str, level: str, message: str) -> bool:
+        emoji = {"INFO": "\u2139\ufe0f", "WARN": "\u26a0\ufe0f", "CRITICAL": "\ud83d\udea8"}.get(level, "\u2139\ufe0f")
+        text = f"{emoji} <b>[{level}] {symbol}</b>\n{message}"
+        return self.send(text)
+
+    def send_report(self, title: str, content: str) -> bool:
+        text = f"<b>{title}</b>\n\n{content}"
+        return self.send(text)
+
+    def get_chat_id(self) -> str:
+        """Fetch the latest chat_id from updates (run once after user sends /start to bot)."""
+        if not self.token:
+            return ""
         try:
-            import asyncio
-            async def _send():
-                await bot.send_message(chat_id=self.chat_id, text=message[:4000])
-            asyncio.get_event_loop().run_until_complete(_send())
-            logger.info("Telegram 消息已发送")
-            return True
+            resp = requests.get(f"{self.api_base}/getUpdates", timeout=10)
+            data = resp.json()
+            if data.get("ok") and data.get("result"):
+                chat_id = str(data["result"][-1]["message"]["chat"]["id"])
+                logger.info("Detected chat_id: %s", chat_id)
+                return chat_id
         except Exception as e:
-            logger.error(f"Telegram 发送失败: {e}")
-            return False
+            logger.error("getUpdates failed: %s", e)
+        return ""

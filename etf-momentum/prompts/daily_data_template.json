@@ -1,0 +1,119 @@
+﻿{
+  "_说明": "将本文件中的数据替换为你实际计算的ETF量化数据，然后整体替换提示词模板中的 {DATA_INPUT} 占位符。",
+  "_策略版本": "v2.0 - 多资产全球轮动 + 波动率截断 + ATR移动止损",
+  "report_date": "2026-06-20",
+  "is_rebalance_day": true,
+  "rebalance_weekday": "周一",
+
+  "market_environment": {
+    "benchmark_index": "沪深300",
+    "benchmark_return_20d_pct": 0,
+    "avg_pool_atr_pct": 0,
+    "vol_trigger_active": false,
+    "vol_trigger_detail": "填写：全资产平均ATR X.X%，未触及/已触及3.5%截断阈值，系统处于正常进攻模式/防御模式"
+  },
+
+  "etfs": [
+    {
+      "code": "510500",
+      "name": "中证500ETF",
+      "market": "A股",
+      "price_snapshot": {
+        "latest_close": 0, "previous_close": 0,
+        "open": 0, "high": 0, "low": 0,
+        "volume": 0, "turnover": 0, "daily_change_pct": 0
+      },
+      "momentum_scoring": {
+        "return_20d_pct": 0,
+        "volatility_20d_pct": 0,
+        "risk_adjusted_score": 0,
+        "score_rank": 0,
+        "score_eligible": true
+      },
+      "trend_filter": {
+        "sma20": 0,
+        "close_above_sma20": false,
+        "sma20_direction": "上行/走平/下行",
+        "sma20_slope_pct": 0,
+        "filter_pass": false,
+        "filter_detail": "价格站上SMA20✅/❌ | SMA20未下行✅/❌ → 通过/未通过趋势过滤"
+      },
+      "atr_indicators": {
+        "atr_14d_value": 0,
+        "atr_pct": 0,
+        "atr_pct_vs_pool_avg": 0
+      },
+      "supplementary_momentum": {
+        "return_5d_pct": 0,
+        "return_10d_pct": 0,
+        "sma5": 0,
+        "sma5_direction": "上行/走平/下行",
+        "volume_vs_20d_avg_ratio": 0,
+        "is_bullish_candle_today": false
+      }
+    },
+    {
+      "code": "510890",
+      "name": "红利ETF",
+      "market": "A股",
+      "_comment": "结构同上，填写实际数据"
+    },
+    {
+      "code": "513100",
+      "name": "纳指ETF",
+      "market": "美股跨境",
+      "_comment": "结构同上 + premium_check",
+      "premium": { "premium_rate_pct": 0, "premium_exceeded": false }
+    },
+    {
+      "code": "513520",
+      "name": "日经ETF",
+      "market": "日股跨境",
+      "_comment": "结构同上 + premium_check",
+      "premium": { "premium_rate_pct": 0, "premium_exceeded": false }
+    },
+    {
+      "code": "588000",
+      "name": "科创50ETF",
+      "market": "A股",
+      "_comment": "结构同上"
+    },
+    {
+      "code": "159915",
+      "name": "创业板ETF",
+      "market": "A股",
+      "_comment": "结构同上"
+    }
+  ],
+
+  "current_positions": {
+    "has_positions": false,
+    "equity_positions": [
+      {
+        "code": "588000", "name": "科创50ETF",
+        "entry_date": "2026-06-09",
+        "avg_cost": 0, "current_price": 0,
+        "shares": 0, "market_value": 0, "weight_pct": 0,
+        "unrealized_pnl": 0, "unrealized_pnl_pct": 0,
+        "highest_since_entry": 0,
+        "atr_stop_price": 0,
+        "stop_triggered": false,
+        "stop_detail": "当前价高于/低于3倍ATR止损线，持仓安全/触发止损"
+      }
+    ],
+    "bond_position": {
+      "code": "511010", "name": "国债ETF",
+      "market_value": 0, "weight_pct": 0
+    },
+    "cash_available": 0,
+    "total_nav": 100000
+  },
+
+  "previous_week_summary": {
+    "last_rebalance_date": "2026-06-13",
+    "last_action": "调仓至科创50ETF(X%) + 纳指ETF(X%) / 全仓国债防御",
+    "weekly_return_pct": 0,
+    "cumulative_return_pct": 0,
+    "max_drawdown_pct": 0
+  }
+}

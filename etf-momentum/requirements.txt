@@ -1,40 +1,9 @@
-﻿# ETF Momentum - 个人量化交易辅助系统
-#
-# ============================================================
-# 核心依赖
-# ============================================================
-
-# 数据获取
-akshare>=1.12.0          # A股/ETF 行情数据
-yfinance>=0.2.40         # 美股/港股数据（备用）
-
-# 数据处理
-pandas>=2.2.0
-numpy>=1.26.0
-ta>=0.11.0               # 技术指标库
-ta-lib>=0.4.28           # 高级技术指标（需系统安装 C 库）
-
-# Web 框架
+akshare>=1.12.0
+pandas>=2.0.0
+numpy>=1.24.0
 flask>=3.0.0
-flask-bootstrap4>=4.0.0
-flask-apscheduler>=1.13.0
-
-# 任务调度
 apscheduler>=3.10.0
-
-# 数据库
-sqlite-utils>=3.36       # SQLite 便捷操作
-
-# 通知
-python-telegram-bot>=21.0
-
-# 配置
 pyyaml>=6.0
-
-# 可视化
-matplotlib>=3.8.0
-plotly>=5.18.0
-
-# 工具
+waitress>=2.1.0
+yfinance>=0.2.30
 requests>=2.31.0
-python-dotenv>=1.0.0
