@@ -7,10 +7,8 @@ from .base import DataSource
 from .yfinance_source import YFinanceSource
 from .eastmoney_source import EastMoneySource
 from .akshare_source import AKShareSource
-from .sina_source import SinaSource
 
 logger = logging.getLogger(__name__)
-
 
 class SourceManager:
     """Orchestrates multiple data sources with priority-based fallback."""
@@ -23,13 +21,14 @@ class SourceManager:
     def _init_sources(self):
         """Initialize all available sources in priority order."""
         self.sources = [
-            EastMoneySource(),   # priority 20 - lightweight HTTP, good from overseas
-            YFinanceSource(),    # priority 10 - most reliable globally
-            AKShareSource(),     # priority 30 - best data but may have issues
-            SinaSource(),        # priority 40 - last HTTP fallback
+            YFinanceSource(),    # priority 5 - Yahoo chart API, works from Tokyo
+            EastMoneySource(),   # priority 20 - lightweight HTTP fallback
+            AKShareSource(),     # priority 30 - fallback
         ]
         self.sources.sort(key=lambda s: s.priority)
-        logger.info("Data sources initialized: %s", [s.name for s in self.sources])
+        # Cooldown between ETF requests to avoid rate limits
+        self._cooldown_seconds = 3.0
+        logger.info("Data sources initialized: %s (cooldown %.1fs)", [s.name for s in self.sources], self._cooldown_seconds)
 
     def fetch_realtime(self, symbol: str) -> Optional[dict]:
         """Try all sources in priority order until one succeeds."""
@@ -56,6 +55,7 @@ class SourceManager:
         import time as t
         for source in self.sources:
             logger.debug("Trying %s for %s history", source.name, symbol)
+            time.sleep(self._cooldown_seconds)
             for attempt in range(1, 4):
                 try:
                     df = source.fetch_history(symbol, start_date, end_date)
