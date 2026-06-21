@@ -52,16 +52,23 @@ class SourceManager:
         return None
 
     def fetch_history(self, symbol: str, start_date: str, end_date: str) -> pd.DataFrame:
-        """Try all sources for historical data."""
+        """Try all sources for historical data (no circuit breaker for history)."""
+        import time as t
         for source in self.sources:
-            if not source.is_available():
-                continue
             logger.debug("Trying %s for %s history", source.name, symbol)
-            df = source.fetch_history(symbol, start_date, end_date)
-            if not df.empty:
-                logger.debug("Source %s returned %d rows for %s", source.name, len(df), symbol)
-                return df
-            time.sleep(0.3)
+            for attempt in range(1, 4):
+                try:
+                    df = source.fetch_history(symbol, start_date, end_date)
+                    if not df.empty:
+                        logger.debug("Source %s returned %d rows for %s", source.name, len(df), symbol)
+                        return df
+                    if attempt < 3:
+                        t.sleep(2 * attempt)
+                except Exception as e:
+                    logger.debug("Source %s attempt %d: %s", source.name, attempt, e)
+                    if attempt < 3:
+                        t.sleep(2 * attempt)
+            logger.debug("Source %s exhausted for %s", source.name, symbol)
         logger.error("All sources failed for %s history", symbol)
         return pd.DataFrame()
 

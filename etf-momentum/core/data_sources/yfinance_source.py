@@ -21,7 +21,7 @@ class YFinanceSource(DataSource):
     }
 
     def __init__(self):
-        super().__init__("yfinance", priority=10)
+        super().__init__("yfinance", priority=5)
 
     def _to_yahoo(self, symbol: str) -> str:
         if symbol in self.SYMBOL_MAP:
