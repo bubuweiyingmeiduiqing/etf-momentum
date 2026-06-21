@@ -138,14 +138,14 @@ class StrategyEngine:
     def _compute_one(self, code, name, trade_date, cross_border):
         import numpy as np
         hist = self.db.get_daily_summary(code, limit=40)
-        if not hist or len(hist) < 20:
+        if not hist or len(hist) < 9:
             logger.warning("%s history <20 rows", code)
             return None
         closes = np.array([h["close"] for h in hist if h.get("close")], dtype=float)
         highs = np.array([h.get("high", h.get("close")) for h in hist], dtype=float)
         lows = np.array([h.get("low", h.get("close")) for h in hist], dtype=float)
         volumes = np.array([h.get("volume", 0) for h in hist], dtype=float)
-        if len(closes) < 20:
+        if len(closes) < 9:
             return None
         latest = closes[-1]
         ind = EtfIndicators(code=code, name=name, trade_date=trade_date, close=latest)

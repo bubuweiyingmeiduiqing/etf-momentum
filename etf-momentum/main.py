@@ -285,6 +285,16 @@ def main():
             logger.info("Report generated for %s", args.report)
         else:
             logger.error("Failed to generate report for %s", args.report)
+            try:
+                notifier.telegram.send(
+                    f"❌ <b>Report Failed</b>
+"
+                    f"Date: {args.report}
+"
+                    f"Reason: No valid ETF data (check data/etf_momentum.db)"
+                )
+            except Exception:
+                pass
     elif args.web:
         run_scheduler = config.get("web", {}).get("also_run_scheduler", False)
         if run_scheduler:

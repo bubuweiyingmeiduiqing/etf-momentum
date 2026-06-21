@@ -24,7 +24,7 @@ fetcher:
     - "159915"      # 创业板ETF
     - "512880"      # 证券ETF
   interval_minutes: 5
-  start_date: "2024-01-01"
+  start_date: "2026-05-01"
   max_retries: 3                     # API 调用最大重试次数
   retry_base_delay: 2.0              # 重试基础延迟（秒）
   use_mock_fallback: false           # 所有数据源失败后是否使用模拟数据
