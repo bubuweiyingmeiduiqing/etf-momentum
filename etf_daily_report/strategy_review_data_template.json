@@ -1,0 +1,151 @@
+{
+  "_description": "?????? ? ????????????????????????????",
+  "review_period": {
+    "start_date": "2026-06-01",
+    "end_date": "2026-06-20",
+    "total_trading_days": 14,
+    "rebalance_count": 3,
+    "description": "??????3?????"
+  },
+  "performance_summary": {
+    "strategy_cumulative_return_pct": 0,
+    "benchmark_cumulative_return_pct": 0,
+    "benchmark_name": "??300",
+    "excess_return_pct": 0,
+    "max_drawdown_pct": 0,
+    "sharpe_ratio_annualized": 0,
+    "calmar_ratio": 0,
+    "win_rate_pct": 0,
+    "avg_win_pct": 0,
+    "avg_loss_pct": 0,
+    "profit_factor": 0
+  },
+  "rebalance_history": [
+    {
+      "date": "2026-06-02",
+      "week_num": 1,
+      "market_mode": "????",
+      "avg_pool_atr_pct": 2.8,
+      "vol_trigger_active": false,
+      "candidates_passed_filter": 3,
+      "selected_top2": [
+        {
+          "code": "588000",
+          "name": "??50ETF",
+          "risk_adjusted_score": 1.25,
+          "atr_pct": 2.1,
+          "target_weight_pct": 55,
+          "target_value": 55000
+        },
+        {
+          "code": "513100",
+          "name": "??ETF",
+          "risk_adjusted_score": 1.1,
+          "atr_pct": 2.6,
+          "target_weight_pct": 45,
+          "target_value": 45000
+        }
+      ],
+      "bond_allocation_pct": 0,
+      "actions_taken": [
+        {
+          "code": "588000",
+          "action": "????",
+          "amount": 55000
+        },
+        {
+          "code": "513100",
+          "action": "????",
+          "amount": 45000
+        },
+        {
+          "code": "511010",
+          "action": "??",
+          "amount": 0
+        }
+      ],
+      "week_result": {
+        "weekly_return_pct": 0,
+        "best_performer": "??50ETF",
+        "worst_performer": "??ETF"
+      }
+    }
+  ],
+  "stop_loss_events": [
+    {
+      "date": "2026-06-12",
+      "code": "513100",
+      "name": "??ETF",
+      "trigger_type": "SMA20??",
+      "entry_date": "2026-06-02",
+      "entry_price": 0,
+      "exit_price": 0,
+      "highest_since_entry": 0,
+      "atr_stop_price_at_exit": 0,
+      "loss_amount": 0,
+      "loss_pct": 0,
+      "holding_days": 10,
+      "comment": "??SMA20???????3?ATR???????"
+    },
+    {
+      "date": "2026-06-18",
+      "code": "588000",
+      "name": "??50ETF",
+      "trigger_type": "3?ATR????",
+      "entry_date": "2026-06-02",
+      "entry_price": 0,
+      "exit_price": 0,
+      "highest_since_entry": 0,
+      "atr_stop_price_at_exit": 0,
+      "loss_amount": 0,
+      "loss_pct": 0,
+      "holding_days": 16,
+      "comment": "??????????3?ATR???????"
+    }
+  ],
+  "filter_effectiveness": {
+    "trend_filter": {
+      "total_checks": 18,
+      "passed_count": 10,
+      "pass_rate_pct": 55.6,
+      "passed_then_profitable_pct": 0,
+      "comment": "???????????????"
+    },
+    "premium_filter": {
+      "total_checks": 6,
+      "filtered_out_count": 1,
+      "filtered_out_instance": "??ETF???2.1%????",
+      "was_filter_correct": true,
+      "comment": "???????????????????"
+    },
+    "score_ranking": {
+      "rank1_weekly_avg_return_pct": 0,
+      "rank2_weekly_avg_return_pct": 0,
+      "rank1_outperformed_rank2_pct": 0,
+      "comment": "???????????????????"
+    }
+  },
+  "risk_management_review": {
+    "vol_trigger_events": [
+      {
+        "date": "2026-06-15",
+        "avg_atr_pct": 3.8,
+        "action": "???????40%???",
+        "subsequent_week_return_pct": 0,
+        "was_defense_beneficial": true,
+        "comment": "?????????????????"
+      }
+    ],
+    "stop_loss_summary": {
+      "total_stop_loss_events": 2,
+      "sma20_stops": 1,
+      "atr_trailing_stops": 1,
+      "total_loss_from_stops": 0,
+      "max_single_loss": 0,
+      "avg_loss_pct": 0,
+      "comment": "????????"
+    }
+  },
+  "current_prompt_version": "v2.0",
+  "current_prompt_summary": "????????????? + ???? + ???? + ????? + ?????7???????????"
+}

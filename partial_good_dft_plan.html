@@ -1,0 +1,820 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SSN 架构 Partial Good DFT 测试方案</title>
+  <style>
+    :root {
+      --bg: #f6f8fb;
+      --paper: #ffffff;
+      --ink: #17202a;
+      --muted: #5d6d7e;
+      --brand: #0b5cad;
+      --brand2: #0f766e;
+      --line: #d8dee9;
+      --code-bg: #0f172a;
+      --code-fg: #e5e7eb;
+      --warn-bg: #fff7ed;
+      --warn-border: #fb923c;
+      --ok-bg: #ecfdf5;
+      --ok-border: #10b981;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font: 15px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans CJK SC", "Microsoft YaHei", Arial, sans-serif;
+    }
+    .page {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 32px 24px 64px;
+    }
+    header {
+      background: linear-gradient(135deg, #083b75, #0f766e);
+      color: #fff;
+      border-radius: 18px;
+      padding: 34px 36px;
+      box-shadow: 0 14px 34px rgba(15, 23, 42, .18);
+      margin-bottom: 26px;
+    }
+    header h1 { margin: 0 0 12px; font-size: 32px; line-height: 1.25; }
+    header p { margin: 6px 0; color: #e0f2fe; font-size: 16px; }
+    .card {
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 24px 28px;
+      margin: 18px 0;
+      box-shadow: 0 8px 24px rgba(15, 23, 42, .06);
+    }
+    h2 {
+      color: var(--brand);
+      border-bottom: 2px solid #e5eef8;
+      padding-bottom: 8px;
+      margin-top: 4px;
+    }
+    h3 { color: #0f4c81; margin-top: 24px; }
+    h4 { color: #134e4a; margin-bottom: 8px; }
+    .tagline {
+      border-left: 5px solid var(--brand2);
+      background: #eefcf9;
+      padding: 14px 18px;
+      border-radius: 10px;
+      font-weight: 700;
+      margin: 18px 0;
+    }
+    .warn {
+      border-left: 5px solid var(--warn-border);
+      background: var(--warn-bg);
+      padding: 14px 18px;
+      border-radius: 10px;
+      margin: 14px 0;
+    }
+    .ok {
+      border-left: 5px solid var(--ok-border);
+      background: var(--ok-bg);
+      padding: 14px 18px;
+      border-radius: 10px;
+      margin: 14px 0;
+    }
+    code {
+      background: #eef2ff;
+      color: #1e3a8a;
+      padding: 1px 5px;
+      border-radius: 5px;
+      font-family: Consolas, Monaco, "Courier New", monospace;
+      font-size: .95em;
+    }
+    pre {
+      background: var(--code-bg);
+      color: var(--code-fg);
+      padding: 18px;
+      border-radius: 12px;
+      overflow-x: auto;
+      border: 1px solid #1f2937;
+      line-height: 1.45;
+    }
+    pre code { background: transparent; color: inherit; padding: 0; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 14px 0 20px;
+      overflow: hidden;
+      border-radius: 10px;
+    }
+    th, td {
+      border: 1px solid var(--line);
+      padding: 10px 12px;
+      vertical-align: top;
+    }
+    th { background: #eef5ff; color: #0b3b75; text-align: left; }
+    tr:nth-child(even) td { background: #fafcff; }
+    ul, ol { padding-left: 24px; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 14px;
+    }
+    .mini {
+      background: #f8fafc;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 14px 16px;
+    }
+    .toc a { color: var(--brand); text-decoration: none; }
+    .toc a:hover { text-decoration: underline; }
+    .caption { color: var(--muted); font-size: 13px; margin-top: -8px; }
+    footer {
+      color: var(--muted);
+      text-align: center;
+      padding: 28px 0 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <h1>SSN 架构下 Partial Good DFT 测试方案</h1>
+      <p>目标：坏 Tile 不从 SSN 拿掉；不改 Scan / EDT / MISR 拓扑；一次 ATPG、一次 WGL、一次 STIL 支持所有 Partial Good SKU。</p>
+      <p>核心：所有 Tile 永远参与同一套 SSN 扫描加载/卸载和同一套 ATPG pattern；SKU 差异只由运行时 Tile Good/Bad Mask 与 On-Chip Compare Mask 决定。</p>
+    </header>
+
+    <section class="card toc">
+      <h2>目录</h2>
+      <ol>
+        <li><a href="#goal">目标与约束</a></li>
+        <li><a href="#architecture">总体结构图</a></li>
+        <li><a href="#principles">关键设计原则</a></li>
+        <li><a href="#compare">On-Chip Compare 与 Partial Good Mask</a></li>
+        <li><a href="#sku">SKU Mask 与 Binning</a></li>
+        <li><a href="#flow">测试流程图</a></li>
+        <li><a href="#patterns">一次 ATPG / WGL / STIL 策略</a></li>
+        <li><a href="#misr">MISR 污染风险与处理</a></li>
+        <li><a href="#tessent">Tessent 修改主要命令骨架</a></li>
+        <li><a href="#checklist">验证 Checklist</a></li>
+      </ol>
+    </section>
+
+    <section class="card" id="goal">
+      <h2>1. 目标与约束</h2>
+      <div class="grid">
+        <div class="mini">
+          <h4>必须满足</h4>
+          <ul>
+            <li>SSN / Streaming Scan Network 结构。</li>
+            <li>支持 On-Chip Compare。</li>
+            <li>坏 Tile 不从 SSN endpoint list 中移除。</li>
+            <li>一次 ATPG、一次 WGL、一次 STIL。</li>
+            <li>同一套 pattern 支持所有 Partial Good SKU。</li>
+          </ul>
+        </div>
+        <div class="mini">
+          <h4>不能改变</h4>
+          <ul>
+            <li>不能改 Scan chain topology。</li>
+            <li>不能改 EDT decompressor / compactor topology。</li>
+            <li>不能改 MISR polynomial、width、input mapping、feedback。</li>
+            <li>不能为不同 SKU 生成不同 ATPG pattern。</li>
+          </ul>
+        </div>
+      </div>
+      <div class="tagline">
+        一句话方案：用 Full Good 模型生成唯一 ATPG pattern，所有 Tile 固定留在 SSN / Scan / EDT / MISR 拓扑中；每个 Tile 后加固定 On-Chip Compare 和 fail sticky，通过 IJTAG/ATE 加载 Partial Good SKU mask，只 mask pass/fail 判定，不改任何 DFT 拓扑。
+      </div>
+    </section>
+
+    <section class="card" id="architecture">
+      <h2>2. 总体结构图</h2>
+      <pre><code>                     ┌─────────────────────────────┐
+                     │             ATE             │
+                     │  One WGL / One STIL Pattern │
+                     └──────────────┬──────────────┘
+                                    │
+                                    │ SSN packet stream
+                                    │ same for all SKUs
+                                    ▼
+┌────────────────────────────────────────────────────────────────────┐
+│                              CHIP TOP                              │
+│                                                                    │
+│  ┌──────────────────────────────────────────────────────────────┐  │
+│  │                         SSN Fabric                           │  │
+│  │  - Fixed topology                                            │  │
+│  │  - All Tile endpoints remain connected                       │  │
+│  │  - No bad Tile removal                                       │  │
+│  └───────┬────────────┬────────────┬────────────┬───────────────┘  │
+│          │            │            │            │                  │
+│          ▼            ▼            ▼            ▼                  │
+│   ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐             │
+│   │  Tile0   │ │  Tile1   │ │  Tile2   │ │  TileN   │             │
+│   │ Scan/EDT │ │ Scan/EDT │ │ Scan/EDT │ │ Scan/EDT │             │
+│   └────┬─────┘ └────┬─────┘ └────┬─────┘ └────┬─────┘             │
+│        │            │            │            │                   │
+│        ▼            ▼            ▼            ▼                   │
+│   ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐             │
+│   │ On-Chip  │ │ On-Chip  │ │ On-Chip  │ │ On-Chip  │             │
+│   │ Compare  │ │ Compare  │ │ Compare  │ │ Compare  │             │
+│   └────┬─────┘ └────┬─────┘ └────┬─────┘ └────┬─────┘             │
+│        │            │            │            │                   │
+│        ▼            ▼            ▼            ▼                   │
+│   ┌──────────────────────────────────────────────────────────┐     │
+│   │             Partial Good Mask / SKU Mask Logic            │     │
+│   │  tile_required_mask[N:0]                                  │     │
+│   │  tile_compare_enable[N:0]                                 │     │
+│   │  tile_fail_sticky[N:0]                                    │     │
+│   │                                                          │     │
+│   │  effective_fail[i] = tile_required_mask[i]                │     │
+│   │                    & tile_compare_enable[i]               │     │
+│   │                    & tile_fail_sticky[i]                  │     │
+│   └──────────────────────────┬───────────────────────────────┘     │
+│                              │                                     │
+│                              ▼                                     │
+│                    ┌──────────────────┐                            │
+│                    │  Final Pass/Fail │                            │
+│                    │  PG Bin Decision │                            │
+│                    └──────────────────┘                            │
+└────────────────────────────────────────────────────────────────────┘</code></pre>
+    </section>
+
+    <section class="card" id="principles">
+      <h2>3. 关键设计原则</h2>
+      <h3>3.1 坏 Tile 不从 SSN 中移除</h3>
+      <p>SSN endpoint / packet route / schedule 固定。即使某个 Tile 已知坏，也仍然接收 SSN packet、执行 scan shift/capture/unload，并保持与其它 Tile 相同的 SSN 调度。</p>
+      <pre><code>SSN endpoint list:
+  Tile0 endpoint: always present
+  Tile1 endpoint: always present
+  Tile2 endpoint: always present
+  ...
+  TileN endpoint: always present</code></pre>
+
+      <h3>3.2 不改 Scan / EDT / MISR 拓扑</h3>
+      <table>
+        <thead><tr><th>模块</th><th>固定内容</th><th>禁止做法</th></tr></thead>
+        <tbody>
+          <tr><td>Scan</td><td>chain count、chain order、stitching</td><td>Bad Tile bypass、per-SKU chain removal、per-SKU chain re-stitch</td></tr>
+          <tr><td>EDT</td><td>channel count、decompressor、compactor、mapping</td><td>per-SKU EDT remap、per-SKU decompressor/compactor change</td></tr>
+          <tr><td>MISR</td><td>polynomial、width、feedback、input mapping、reset</td><td>per-SKU MISR polynomial 或 input map 变化</td></tr>
+          <tr><td>SSN</td><td>endpoint、packet map、route、schedule</td><td>从 SSN 中删除坏 Tile endpoint</td></tr>
+        </tbody>
+      </table>
+
+      <div class="ok">
+        Partial Good 只改变“这个 Tile 的 response 是否参与 pass/fail 判断”，不改变 scan stimulus、SSN packet、EDT 解压/压缩和 MISR 拓扑。
+      </div>
+    </section>
+
+    <section class="card" id="compare">
+      <h2>4. On-Chip Compare 与 Partial Good Mask</h2>
+      <h3>4.1 Per-Tile Comparator</h3>
+      <pre><code>                  Same SSN unload stream
+                         │
+                         ▼
+                  ┌─────────────┐
+                  │ Tile scan   │
+                  │ response    │
+                  └──────┬──────┘
+                         │ actual_response
+                         ▼
+              ┌──────────────────────┐
+ expected --->│  On-Chip Comparator  │
+ mask ------->│  with X-mask support │
+ enable ----->│                      │
+              └──────────┬───────────┘
+                         │
+                         ▼
+                 tile_fail_sticky[i]</code></pre>
+
+      <table>
+        <thead><tr><th>信号</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td><code>actual_response</code></td><td>Tile scan unload 或 compacted response。</td></tr>
+          <tr><td><code>expected_response</code></td><td>ATPG 生成的期望值，可由 SSN/ATE stream 或片上逻辑提供。</td></tr>
+          <tr><td><code>compare_mask</code></td><td>X-mask / don't-care mask。</td></tr>
+          <tr><td><code>tile_compare_enable</code></td><td>当前 Tile 是否参与比较。</td></tr>
+          <tr><td><code>tile_fail_sticky</code></td><td>Tile 级 sticky fail。</td></tr>
+        </tbody>
+      </table>
+
+      <h3>4.2 Comparator 逻辑</h3>
+      <pre><code class="language-verilog">compare_mismatch =
+    pattern_valid
+  & tile_compare_enable
+  & compare_mask
+  & (actual_response ^ expected_response);
+
+always_ff @(posedge test_clk or negedge test_rst_n) begin
+  if (!test_rst_n) begin
+    tile_fail_sticky[i] <= 1'b0;
+  end else if (clear_tile_fail[i]) begin
+    tile_fail_sticky[i] <= 1'b0;
+  end else if (compare_mismatch) begin
+    tile_fail_sticky[i] <= 1'b1;
+  end
+end</code></pre>
+
+      <h3>4.3 Final Fail Aggregation</h3>
+      <pre><code class="language-verilog">assign effective_tile_fail[i] =
+       pg_tile_required_mask[i]
+     & tile_compare_enable[i]
+     & tile_fail_sticky[i];
+
+assign final_fail = |effective_tile_fail;
+assign final_pass = ~final_fail;</code></pre>
+    </section>
+
+    <section class="card" id="sku">
+      <h2>5. Partial Good SKU Mask 与 Binning</h2>
+      <h3>5.1 建议寄存器</h3>
+      <p>建议通过 IJTAG / TAP / SSN sideband / test register 加载以下寄存器：</p>
+      <pre><code>PG_TILE_REQUIRED_MASK[N:0]
+PG_TILE_COMPARE_ENABLE[N:0]
+PG_TILE_KNOWN_BAD_MASK[N:0]
+PG_BIN_MODE
+PG_MIN_GOOD_TILE_COUNT</code></pre>
+
+      <h3>5.2 SKU 示例</h3>
+      <p>假设 8 个 Tile，bit 顺序为 <code>Tile7 ... Tile0</code>：</p>
+      <table>
+        <thead><tr><th>SKU</th><th>要求</th><th>Mask 示例</th></tr></thead>
+        <tbody>
+          <tr><td>Full Good</td><td>所有 Tile 必须 pass</td><td><code>8'b1111_1111</code></td></tr>
+          <tr><td>SKU_A</td><td>允许 Tile7 坏</td><td><code>8'b0111_1111</code></td></tr>
+          <tr><td>SKU_B</td><td>允许 Tile3、Tile6 坏</td><td><code>8'b1011_0111</code></td></tr>
+          <tr><td>SKU_C</td><td>任意 6 个 Tile 好即可</td><td>使用 count-based binning：<code>good_count &gt;= 6</code></td></tr>
+        </tbody>
+      </table>
+
+      <h3>5.3 Count-Based SKU</h3>
+      <pre><code class="language-verilog">assign tile_pass[i] = ~tile_fail_sticky[i];
+
+good_tile_count = popcount(tile_pass);
+
+assign final_pass_count_mode =
+    good_tile_count >= pg_min_good_tile_count;</code></pre>
+
+      <h3>5.4 Hybrid SKU</h3>
+      <pre><code class="language-verilog">required_fail = |(pg_tile_required_mask & tile_fail_sticky);
+optional_good_count = popcount(pg_optional_tile_mask & ~tile_fail_sticky);
+
+final_pass_hybrid =
+    ~required_fail &&
+    optional_good_count >= pg_optional_min_good_count;</code></pre>
+    </section>
+
+    <section class="card" id="flow">
+      <h2>6. 测试流程图</h2>
+      <h3>6.1 Wafer Sort / Final Test 主流程</h3>
+      <pre><code>┌──────────────────────────┐
+│ Start Test               │
+└────────────┬─────────────┘
+             ▼
+┌──────────────────────────┐
+│ Power-up / Reset         │
+└────────────┬─────────────┘
+             ▼
+┌──────────────────────────┐
+│ TAP / IJTAG Init         │
+└────────────┬─────────────┘
+             ▼
+┌──────────────────────────┐
+│ SSN Init / Loopback Test │
+│ - same for all SKUs      │
+└────────────┬─────────────┘
+             ▼
+┌──────────────────────────┐
+│ Load SKU / PG Mask       │
+│ - required tile mask     │
+│ - compare enable mask    │
+│ - binning mode           │
+└────────────┬─────────────┘
+             ▼
+┌──────────────────────────┐
+│ Reset EDT / MISR / OCC   │
+│ Reset fail sticky bits   │
+└────────────┬─────────────┘
+             ▼
+┌──────────────────────────┐
+│ Apply One ATPG Pattern   │
+│ via One WGL/STIL         │
+└────────────┬─────────────┘
+             ▼
+┌──────────────────────────┐
+│ On-Chip Compare          │
+│ Per Tile Fail Sticky     │
+└────────────┬─────────────┘
+             ▼
+┌──────────────────────────┐
+│ Apply PG Mask            │
+│ Calculate final fail     │
+└────────────┬─────────────┘
+             ▼
+┌──────────────────────────┐
+│ Read Tile Fail Bitmap    │
+│ Read Final Pass/Fail     │
+└────────────┬─────────────┘
+             ▼
+┌──────────────────────────┐
+│ Bin Decision             │
+│ Full Good / PG SKU / Bad │
+└──────────────────────────┘</code></pre>
+
+      <h3>6.2 On-Chip Compare 详细流程</h3>
+      <pre><code>┌──────────────────────────────┐
+│ Pattern Start                │
+└──────────────┬───────────────┘
+               ▼
+┌──────────────────────────────┐
+│ Reset tile_fail_sticky[N:0]  │
+└──────────────┬───────────────┘
+               ▼
+┌──────────────────────────────┐
+│ Load PG_TILE_REQUIRED_MASK   │
+└──────────────┬───────────────┘
+               ▼
+┌──────────────────────────────┐
+│ For each scan unload cycle   │
+└──────────────┬───────────────┘
+               ▼
+┌──────────────────────────────┐
+│ Get actual / expected / mask │
+└──────────────┬───────────────┘
+               ▼
+┌──────────────────────────────┐
+│ tile_compare_enable == 1 ?   │
+└───────┬────────────────┬─────┘
+        │ Yes            │ No
+        ▼                ▼
+┌───────────────┐   ┌──────────────────────┐
+│ Compare data  │   │ Force compare pass   │
+└───────┬───────┘   │ No sticky update     │
+        │           └──────────┬───────────┘
+        ▼                      │
+┌───────────────┐              │
+│ Mismatch ?    │              │
+└───┬───────┬───┘              │
+    │ Yes   │ No               │
+    ▼       ▼                  │
+┌────────┐ ┌──────────────┐    │
+│ Set    │ │ Keep sticky  │    │
+│ fail   │ │ unchanged    │    │
+└───┬────┘ └──────┬───────┘    │
+    │             │            │
+    └──────┬──────┴────────────┘
+           ▼
+┌──────────────────────────────┐
+│ Next unload cycle / pattern  │
+└──────────────────────────────┘</code></pre>
+    </section>
+
+    <section class="card" id="patterns">
+      <h2>7. 一次 ATPG / 一次 WGL / 一次 STIL 策略</h2>
+      <h3>7.1 ATPG 按 Full Good 建模</h3>
+      <pre><code>All Tile exist.
+All scan chains exist.
+All EDT channels exist.
+All MISR/compactor exist.
+All SSN endpoints exist.
+All Tile faults are targeted.</code></pre>
+      <p>ATPG 不为每个 SKU 单独生成 pattern。唯一 pattern set 是：</p>
+      <pre><code>Pattern set = P_all_tiles</code></pre>
+
+      <h3>7.2 Same Pattern, Different Mask</h3>
+      <pre><code>Same pattern:
+  scan stimulus
+  scan unload
+  expected response
+  compare mask
+  clocking
+  SSN schedule
+
+Different SKU:
+  pg_tile_required_mask
+  pg_bin_mode
+  pg_min_good_tile_count</code></pre>
+
+      <h3>7.3 STIL/WGL 组织建议</h3>
+      <pre><code>partial_good_all_sku.stil
+  ├── Header
+  ├── Signals
+  ├── Timing
+  ├── ScanStructures
+  ├── Procedures
+  │     ├── ssn_init
+  │     ├── edt_init
+  │     ├── occ_init
+  │     ├── misr_reset
+  │     ├── pg_clear_fail_sticky
+  │     ├── pg_load_mask_full_good
+  │     ├── pg_load_mask_sku_a
+  │     ├── pg_load_mask_sku_b
+  │     ├── pg_load_mask_sku_c
+  │     └── pg_read_fail_bitmap
+  ├── PatternBurst
+  │     └── common_scan_patterns
+  └── Patterns
+        ├── pattern_0
+        ├── pattern_1
+        ├── ...
+        └── pattern_N</code></pre>
+
+      <div class="ok">
+        ATE program 只选择不同的 mask-load procedure；common scan pattern body 不变。因此仍是一份 STIL、一份 WGL、一套 ATPG pattern。
+      </div>
+    </section>
+
+    <section class="card" id="misr">
+      <h2>8. MISR 污染风险与处理</h2>
+      <div class="warn">
+        这是本方案最关键风险：如果坏 Tile 的未知 response 已经进入共享 MISR，则 MISR signature 被污染，后面再 mask 该 Tile 也可能来不及。
+      </div>
+
+      <h3>8.1 推荐方案 A：On-Chip Compare 在 MISR 判定之前完成</h3>
+      <pre><code>Tile scan response
+      │
+      ▼
+On-Chip Compare
+      │
+      ▼
+tile_fail_sticky
+      │
+      ▼
+PG mask final fail</code></pre>
+      <p>MISR 仍然可以存在，但 final pass/fail 不依赖全局共享 MISR signature，而依赖 per-Tile compare sticky。</p>
+
+      <h3>8.2 推荐方案 B：固定 response mask gate，MISR 拓扑不变</h3>
+      <pre><code class="language-verilog">misr_input[i] =
+    tile_compare_enable[i] ? actual_response[i]
+                           : expected_response[i];</code></pre>
+      <p>或：</p>
+      <pre><code class="language-verilog">misr_input[i] =
+    tile_compare_enable[i] ? actual_response[i]
+                           : 1'b0;</code></pre>
+      <p>前提是 ATPG / MISR reference 也按同样 mask 规则处理。</p>
+      <ul>
+        <li>MISR polynomial 不变。</li>
+        <li>MISR width 不变。</li>
+        <li>MISR feedback 不变。</li>
+        <li>MISR input pin 数不变。</li>
+        <li>只是固定地在输入前有一个 mask mux；per-SKU 只改变 mux select，不改变拓扑。</li>
+      </ul>
+    </section>
+
+    <section class="card" id="tessent">
+      <h2>9. Tessent 修改主要命令骨架</h2>
+      <div class="warn">
+        注意：Tessent 不同版本中 SSN / IJTAG / OCC / On-Chip Compare 相关命令和 option 会有差异。下面给的是主流程骨架和命令类别；版本相关命令需要用你们环境中的 <code>help &lt;command&gt;</code>、Siemens AE script 或项目 reference flow 替换。
+      </div>
+
+      <h3>9.1 DFT 插入阶段</h3>
+      <pre><code class="language-tcl"># ============================================================
+# 0. Set context
+# ============================================================
+set_context dft -scan
+
+# ============================================================
+# 1. Read library and design
+# ============================================================
+read_cell_library &lt;lib_files&gt;
+read_verilog &lt;rtl_or_gate_netlist_files&gt;
+set_current_design &lt;top_name&gt;
+
+# ============================================================
+# 2. Basic DFT setup
+# ============================================================
+set_system_mode setup
+add_clocks &lt;clock_list&gt;
+add_resets &lt;reset_list&gt;
+
+# Test mode / scan enable / scan clocks
+# Version dependent:
+# add_dft_signal ...
+# set_dft_signal ...
+# set_scan_enable ...
+# set_test_mode ...
+
+# ============================================================
+# 3. Scan insertion / scan config
+# ============================================================
+# 保持所有 Tile scan chain 固定
+# 不允许 per-SKU chain removal / bypass
+# Version dependent:
+# set_scan_insertion_options ...
+# set_scan_configuration ...
+# set_scan_chain_options ...
+# insert_test_logic
+
+# ============================================================
+# 4. EDT insertion / configuration
+# ============================================================
+# EDT topology 固定，一次生成，所有 SKU 共用
+# Version dependent:
+# set_edt_options ...
+# create_edt_logic ...
+# insert_edt_logic ...
+# report_edt_config
+
+# ============================================================
+# 5. SSN insertion / configuration
+# ============================================================
+# SSN endpoint 固定，坏 Tile 不删除
+# Version dependent:
+# set_ssn_options ...
+# create_ssn_network ...
+# add_ssn_endpoint Tile0 ...
+# add_ssn_endpoint Tile1 ...
+# ...
+# process_ssn_network
+# report_ssn_network
+
+# ============================================================
+# 6. IJTAG / PG mask register insertion
+# ============================================================
+# 插入：PG_TILE_REQUIRED_MASK、PG_TILE_COMPARE_ENABLE、
+#      PG_BIN_MODE、PG_MIN_GOOD_TILE_COUNT、tile_fail_status
+# Version dependent:
+# create_ijtag_network
+# add_ijtag_instrument pg_mask_reg ...
+# add_ijtag_instrument tile_fail_status ...
+# add_ijtag_instrument final_fail_status ...
+# connect_ijtag_instruments
+# write_icl ...
+# write_pdl ...
+
+# ============================================================
+# 7. On-Chip Compare insertion
+# ============================================================
+# 如果 comparator 是自研 RTL，Tessent 需要知道 compare enable、
+# fail sticky observability、X mask、test mode behavior
+# Version dependent:
+# read_verilog on_chip_compare.v
+# set_dft_drc_exceptions ...
+# create_dft_specification
+# process_dft_specification
+
+# ============================================================
+# 8. DRC / extraction
+# ============================================================
+set_system_mode analysis
+check_design_rules
+report_scan_chains
+report_dft_signals
+report_ijtag_network
+# report_ssn_network
+# report_edt_config
+
+# ============================================================
+# 9. Write database
+# ============================================================
+write_tsdb_data -replace
+write_design -output &lt;dft_inserted_netlist&gt;</code></pre>
+
+      <h3>9.2 ATPG 阶段</h3>
+      <pre><code class="language-tcl"># ============================================================
+# 0. ATPG context
+# ============================================================
+set_context patterns -scan
+
+# ============================================================
+# 1. Read DFT database / design
+# ============================================================
+read_tsdb_data &lt;tsdb_path&gt;
+set_current_design &lt;top_name&gt;
+
+# ============================================================
+# 2. Pattern setup
+# ============================================================
+set_system_mode setup
+
+# Set scan mode / EDT mode / SSN mode
+# Version dependent:
+# set_scan_mode ...
+# set_edt_mode ...
+# set_ssn_mode ...
+# set_pattern_source ...
+# set_pattern_sink ...
+
+# ATPG reference generation 默认 Full Good：所有 Tile compare enable = 1
+# 可通过 IJTAG PDL / setup procedure 实现
+# Version dependent pseudo commands:
+# set_ijtag_register PG_TILE_REQUIRED_MASK all_ones
+# set_ijtag_register PG_TILE_COMPARE_ENABLE all_ones
+
+# ============================================================
+# 3. Fault model
+# ============================================================
+set_fault_type stuck
+# 或 transition:
+# set_fault_type transition
+
+# 所有 Tile fault 都保留，不要 remove bad Tile faults
+add_faults -all
+
+# ============================================================
+# 4. ATPG DRC
+# ============================================================
+set_system_mode analysis
+check_design_rules
+
+# ============================================================
+# 5. Create patterns
+# ============================================================
+create_patterns
+
+# ============================================================
+# 6. Report and save
+# ============================================================
+report_patterns
+report_faults
+report_test_coverage
+write_tsdb_data -replace</code></pre>
+
+      <h3>9.3 WGL / STIL 输出</h3>
+      <pre><code class="language-tcl"># STIL
+write_patterns ./patterns/partial_good_all_sku.stil \
+    -stil \
+    -replace
+
+# WGL
+write_patterns ./patterns/partial_good_all_sku.wgl \
+    -wgl \
+    -replace</code></pre>
+
+      <p>如果你的 SSN flow 使用 pattern set，可能需要类似：</p>
+      <pre><code class="language-tcl">write_patterns ./patterns/partial_good_scan.stil \
+    -stil \
+    -replace \
+    -pattern_set scan
+
+write_patterns ./patterns/partial_good_scan.wgl \
+    -wgl \
+    -replace \
+    -pattern_set scan</code></pre>
+
+      <p>SSN loopback / chain pattern 可能为：</p>
+      <pre><code class="language-tcl">write_patterns ./patterns/ssn_loopback.stil \
+    -stil \
+    -replace \
+    -pattern_set ssh_loopback
+
+write_patterns ./patterns/ssn_chain.stil \
+    -stil \
+    -replace \
+    -pattern_set chain</code></pre>
+
+      <h3>9.4 必须避免的 Tessent Flow 做法</h3>
+      <pre><code class="language-tcl"># 不要为 SKU 建不同 design context
+# set_current_design chip_sku_a
+# set_current_design chip_sku_b
+
+# 不要为 Partial Good 移除坏 Tile faults
+# remove_faults -of_instances Tile7
+
+# 不要生成 per-SKU scan/EDT/SSN topology
+# 不要 per-SKU retarget SSN endpoint list</code></pre>
+    </section>
+
+    <section class="card" id="checklist">
+      <h2>10. 验证 Checklist</h2>
+      <h3>10.1 拓扑一致性检查</h3>
+      <ul>
+        <li>Scan chain count / order 在所有 SKU 完全一致。</li>
+        <li>EDT channel count、decompressor、compactor、mapping 完全一致。</li>
+        <li>SSN endpoint list、packet route、schedule 完全一致。</li>
+        <li>MISR polynomial、width、input mapping、reset sequence 完全一致。</li>
+        <li>ATPG pattern set、WGL、STIL 唯一。</li>
+      </ul>
+
+      <h3>10.2 Mask 功能仿真</h3>
+      <table>
+        <thead><tr><th>Case</th><th>条件</th><th>预期</th></tr></thead>
+        <tbody>
+          <tr><td>1</td><td>Tile i good，mask = 1</td><td>Final pass</td></tr>
+          <tr><td>2</td><td>Tile i bad，mask = 1</td><td>Final fail</td></tr>
+          <tr><td>3</td><td>Tile i bad，mask = 0，其它 required Tile pass</td><td>Final pass</td></tr>
+          <tr><td>4</td><td>多个 Tile bad，部分 masked，部分 unmasked</td><td>只有 unmasked bad Tile 导致 fail</td></tr>
+        </tbody>
+      </table>
+
+      <h3>10.3 需要和 Siemens AE / 内部 DFT Owner 确认</h3>
+      <ol>
+        <li>On-Chip Compare expected data 来源：从 ATE/SSN stream 送，还是片上生成？</li>
+        <li>MISR 是否参与最终 pass/fail；如果参与，坏 Tile response 是否会污染 signature？</li>
+        <li>SSN pattern export 是否支持 compare annotation、expected/mask/endpoint mapping。</li>
+        <li>IJTAG PDL 是否被合入 WGL/STIL，PG mask load sequence 是否可由 ATE 选择。</li>
+        <li>Partial Good binning 在片上做，还是由 ATE 根据 tile fail bitmap 做。</li>
+        <li>ATPG 是否对所有 Tile fault 一次性 target，且没有 per-SKU fault removal。</li>
+      </ol>
+
+      <div class="tagline">
+        最推荐落地方式：片上只产生 tile_fail_bitmap / good_count / optional final_fail；ATE 根据 bitmap 做 SKU binning。这样一套 pattern 覆盖全部 Tile，Partial Good 规则可在 ATE 侧灵活调整。
+      </div>
+    </section>
+
+    <footer>
+      Generated for SSN Partial Good DFT planning. 文件可直接用浏览器打开查看。
+    </footer>
+  </div>
+</body>
+</html>

@@ -1,0 +1,103 @@
+﻿{
+  "_说明": "将本文件中的数据替换为你实际计算的ETF量化数据，然后整体替换提示词模板中的 {DATA_INPUT} 占位符。",
+  "report_date": "2026-06-20",
+  "etfs": [
+    {
+      "code": "588000",
+      "name": "科创50ETF",
+      "price_snapshot": {
+        "latest_close": 0,
+        "previous_close": 0,
+        "avg_cost": "你的持仓均价，空仓填null",
+        "open": 0,
+        "high": 0,
+        "low": 0,
+        "volume": 0,
+        "turnover": 0,
+        "daily_change_pct": 0
+      },
+      "momentum_today": {
+        "return_5d_pct": 0,
+        "return_10d_pct": 0,
+        "return_20d_pct": 0,
+        "sma5": 0,
+        "sma5_direction": "上行/走平/下行",
+        "sma5_slope_pct": 0,
+        "sma20": 0,
+        "sma20_direction": "上行/走平/下行",
+        "sma20_slope_pct": 0,
+        "volume_vs_5d_avg_ratio": 0,
+        "volume_vs_prev_ratio": 0,
+        "is_bullish_candle": true,
+        "close_vs_sma5_pct": 0,
+        "close_above_sma20": true,
+        "momentum_score": 0,
+        "momentum_grade": "强势/中等偏强/中性/偏弱/弱势",
+        "near_3d_lows_rising": true
+      },
+      "momentum_previous": {
+        "prev_return_5d_pct": 0,
+        "prev_return_10d_pct": 0,
+        "prev_volume_vs_5d_avg_ratio": 0,
+        "prev_is_bullish_candle": true,
+        "prev_momentum_score": 0,
+        "prev_momentum_grade": "强势/中等偏强/中性/偏弱/弱势",
+        "momentum_trend_change": "转强/转弱/延续",
+        "momentum_5d_trend": "负转正/正转负/正值扩大/负值收窄/延续",
+        "momentum_10d_trend": "跌幅收窄/涨幅扩大/延续",
+        "volume_trend": "缩量转放量/放量转缩量/缩量持续/放量持续"
+      },
+      "volatility": {
+        "daily_volatility_5d_pct": 0,
+        "daily_volatility_20d_pct": 0,
+        "atr_14d": 0,
+        "atr_pct": 0,
+        "bollinger_upper": 0,
+        "bollinger_middle": 0,
+        "bollinger_lower": 0,
+        "bollinger_position": "上轨上方/上轨与中轨之间/中轨附近/中轨与下轨之间/下轨下方",
+        "max_drawdown_20d_pct": 0,
+        "volatility_regime": "高波动/正常波动/低波动"
+      },
+      "signal_check": {
+        "signal1_anti_pullback": false,
+        "signal1_detail": "反抽形态✅/❌ | 价在SMA5±4.5%✅/❌ | 量≥前日1.45倍✅/❌",
+        "signal2_momentum_repair": false,
+        "signal2_detail": "近5日收益转正✅/❌ | 近10日向上修复✅/❌",
+        "signal3_ma_breakout": false,
+        "signal3_detail": "收盘站上SMA20✅/❌ | SMA20走平/上翘✅/❌",
+        "signal4_volume_bullish": false,
+        "signal4_detail": "量>5日均量1.35倍✅/❌ | 阳线✅/❌",
+        "signals_met": 0,
+        "signals_total": 4,
+        "entry_ready": false
+      }
+    },
+    {
+      "code": "510500",
+      "name": "中证500ETF",
+      "_comment": "结构同上，请复制并填入中证500ETF的实际数据"
+    }
+  ],
+  "previous_position": {
+    "has_position": false,
+    "last_report_date": "2026-06-19",
+    "positions": [
+      {
+        "code": "588000",
+        "name": "科创50ETF",
+        "action": "首次半仓买入",
+        "amount": 25000,
+        "pct": 50,
+        "entry_price_low": 0,
+        "entry_price_high": 0,
+        "stop_loss": 0,
+        "signals_met_at_entry": 3,
+        "unrealized_pnl": 0,
+        "unrealized_pnl_pct": 0
+      }
+    ],
+    "cash_available": 75000,
+    "total_capital": 100000
+  }
+}

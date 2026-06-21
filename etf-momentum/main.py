@@ -106,6 +106,9 @@ def run_all(config, shutdown_handler: GracefulShutdown = None):
     # 注册健康检查
     health_checker.register("database", db.health_check)
 
+    # 创建日报生成器
+    report_gen = ReportGenerator(config, db)
+
     # 存储全局引用
     _global_components.update({
         "db": db, "fetcher": fetcher, "notifier": notifier,
@@ -114,7 +117,6 @@ def run_all(config, shutdown_handler: GracefulShutdown = None):
     })
 
     # 启动调度器
-    report_gen = ReportGenerator(config, db)
     scheduler = TaskScheduler(
         config, fetcher, indicator_calc, alerter, notifier,
         report_generator=report_gen,
