@@ -1,35 +1,35 @@
-# ============================================================
-# ETF Momentum 系统配置文件（示例）- 云端容错版
-# 复制为 config.yaml 并修改实际值
+﻿# ============================================================
+# ETF Momentum 绯荤粺閰嶇疆鏂囦欢锛堢ず渚嬶級- 浜戠瀹归敊鐗?
+# 澶嶅埗涓?config.yaml 骞朵慨鏀瑰疄闄呭€?
 # ============================================================
 
-# ----- 守护进程 -----
+# ----- 瀹堟姢杩涚▼ -----
 daemon:
-  pid_file: "etf_momentum.pid"       # PID 文件路径
+  pid_file: "etf_momentum.pid"       # PID 鏂囦欢璺緞
 
-# ----- 数据库 -----
+# ----- 鏁版嵁搴?-----
 database:
-  path: "data/etf_momentum.db"       # SQLite 数据库路径
-  backup_enabled: true               # 是否启用自动备份
-  backup_dir: "data/backups"         # 备份目录
-  backup_keep_days: 30               # 备份保留天数
-  wal_checkpoint_interval: 1000      # WAL checkpoint 间隔（写入次数）
+  path: "data/etf_momentum.db"       # SQLite 鏁版嵁搴撹矾寰?
+  backup_enabled: true               # 鏄惁鍚敤鑷姩澶囦唤
+  backup_dir: "data/backups"         # 澶囦唤鐩綍
+  backup_keep_days: 30               # 澶囦唤淇濈暀澶╂暟
+  wal_checkpoint_interval: 1000      # WAL checkpoint 闂撮殧锛堝啓鍏ユ鏁帮級
 
-# ----- 数据采集 -----
+# ----- 鏁版嵁閲囬泦 -----
 fetcher:
   symbols:
-    - "510050"      # 上证50ETF
-    - "510300"      # 沪深300ETF
-    - "510500"      # 中证500ETF
-    - "159915"      # 创业板ETF
-    - "512880"      # 证券ETF
+    - "510050"      # 涓婅瘉50ETF
+    - "510300"      # 娌繁300ETF
+    - "510500"      # 涓瘉500ETF
+    - "159915"      # 鍒涗笟鏉縀TF
+    - "512880"      # 璇佸埜ETF
   interval_minutes: 5
   start_date: "2026-05-01"
-  max_retries: 3                     # API 调用最大重试次数
-  retry_base_delay: 2.0              # 重试基础延迟（秒）
-  use_mock_fallback: false           # 所有数据源失败后是否使用模拟数据
+  max_retries: 3                     # API 璋冪敤鏈€澶ч噸璇曟鏁?
+  retry_base_delay: 2.0              # 閲嶈瘯鍩虹寤惰繜锛堢锛?
+  use_mock_fallback: false           # 鎵€鏈夋暟鎹簮澶辫触鍚庢槸鍚︿娇鐢ㄦā鎷熸暟鎹?
 
-# ----- 技术指标 -----
+# ----- 鎶€鏈寚鏍?-----
 indicators:
   ma_periods: [5, 10, 20, 60]
   rsi_period: 14
@@ -40,7 +40,7 @@ indicators:
   boll_std: 2
   volume_ma_period: 20
 
-# ----- 告警规则 -----
+# ----- 鍛婅瑙勫垯 -----
 alerts:
   price_change_pct: 3.0
   volume_ratio: 2.0
@@ -49,10 +49,10 @@ alerts:
   ma_cross: true
   boll_breakout: true
 
-# ----- 通知渠道 -----
+# ----- 閫氱煡娓犻亾 -----
 telegram:
   enabled: true
-  bot_token: "REDACTED_TELEGRAM_TOKEN"
+  bot_token: "YOUR_TELEGRAM_BOT_TOKEN"
   chat_id: "YOUR_CHAT_ID"
   error_alerts: true
   max_retries: 3
@@ -61,21 +61,21 @@ email:
   enabled: true
   smtp_host: "smtp.gmail.com"
   smtp_port: 465
-  sender: "redacted@example.com"
-  password: "REDACTED_GMAIL_PASSWORD"
-  receiver: "redacted@example.com,redacted1@example.com,redacted2@example.com,redacted3@example.com,redacted4@example.com,redacted5@example.com"
+  sender: "your-email@gmail.com"
+  password: "YOUR_GMAIL_APP_PASSWORD"
+  receiver: "your-email@gmail.com,recipient2@example.com"
   max_retries: 2
 
-# ----- Web 服务 -----
+# ----- Web 鏈嶅姟 -----
 web:
   host: "0.0.0.0"
   port: 5000
   debug: false
   secret_key: "change-this-to-a-random-string"
-  production_server: true            # 使用 waitress 生产服务器
-  also_run_scheduler: false          # Web 模式下是否同时运行调度器
+  production_server: true            # 浣跨敤 waitress 鐢熶骇鏈嶅姟鍣?
+  also_run_scheduler: false          # Web 妯″紡涓嬫槸鍚﹀悓鏃惰繍琛岃皟搴﹀櫒
 
-# ----- 调度器 -----
+# ----- 璋冨害鍣?-----
 scheduler:
   enabled: true
   trade_only: true
@@ -91,15 +91,15 @@ deepseek:
   max_retries: 3
   retry_base_seconds: 5
 
-# ----- 策略参数 -----
+# ----- 绛栫暐鍙傛暟 -----
 strategy:
   etf_pool:
-    - "510500"   # 中证500ETF
-    - "510890"   # 红利ETF
-    - "513100"   # 纳指ETF
-    - "513520"   # 日经ETF
-    - "588000"   # 科创50ETF
-    - "159915"   # 创业板ETF
+    - "510500"   # 涓瘉500ETF
+    - "510890"   # 绾㈠埄ETF
+    - "513100"   # 绾虫寚ETF
+    - "513520"   # 鏃ョ粡ETF
+    - "588000"   # 绉戝垱50ETF
+    - "159915"   # 鍒涗笟鏉縀TF
   bond_etf: "511010"
   total_capital: 100000
   max_premium_rate: 0.015
@@ -108,3 +108,4 @@ strategy:
   atr_stop_mult: 3.0
   max_holdings: 2
   single_max_weight: 0.50
+
