@@ -1,4 +1,4 @@
-"""Notification dispatcher - Telegram + Email + error alerts"""
+﻿"""Notification dispatcher - Telegram + Email + error alerts"""
 
 import logging, traceback
 from datetime import datetime
@@ -32,22 +32,34 @@ class Notifier:
         self.telegram.send_report("ETF Momentum Report", report)
 
     def send_daily_report(self, trade_date: str, html_content: str):
-        """Send daily report via Telegram summary + full HTML email."""
-        # Telegram: brief summary
-        self.telegram.send_report(f"ETF Daily Report {trade_date}", f"Report ready for {trade_date}")
+        """Send daily report via Telegram (full content) + Email (full HTML)."""
+        # Telegram: full report content, chunked if >4096 chars
+        title = f"📊 ETF Daily Report {trade_date}"
+        chunks = self.telegram.send_long(title, html_content)
+        if chunks:
+            logger.info("Telegram report sent: %d chunk(s)", chunks)
+        else:
+            logger.warning("Telegram report NOT sent (disabled or unconfigured)")
 
         # Email: full HTML report
-        subject = f"ETF {trade_date}"
-        body = f"""<html>
+        if self.email.enabled:
+            subject = f"📊 ETF Daily Report {trade_date}"
+            body = f"""<html>
 <body style="font-family:Arial,'Microsoft YaHei',sans-serif;line-height:1.65;color:#222;">
-  <h1 style="color:#0b5394;border-bottom:2px solid #0b5394;padding-bottom:8px;">ETF</h1>
+  <h1 style="color:#0b5394;border-bottom:2px solid #0b5394;padding-bottom:8px;">ETF Momentum 量化日报</h1>
   <p style="color:#666;">{trade_date}</p>
   <section>{html_content}</section>
   <hr style="margin:24px 0;border:0;border-top:1px solid #ddd;">
-  <p style="font-size:12px;color:#888;"></p>
+  <p style="font-size:12px;color:#888;">ETF Momentum System · Auto-generated</p>
 </body>
 </html>"""
-        self.email.send(subject=subject, body=body, html=True)
+            ok = self.email.send(subject=subject, body=body, html=True)
+            if ok:
+                logger.info("Email report sent to %d recipients", len(self.email.recipients))
+            else:
+                logger.error("Email report FAILED for %s", trade_date)
+        else:
+            logger.warning("Email disabled in config, skipping email report for %s", trade_date)
 
     def send_error(self, component: str, error: Exception, context: str = ""):
         """Send exception alert to Telegram."""
@@ -56,7 +68,7 @@ class Notifier:
         now = datetime.now().strftime("%H:%M:%S")
         tb = "".join(traceback.format_tb(error.__traceback__))[-500:] if error.__traceback__ else ""
         text = (
-            f"\u274c <b>[ERROR] {component}</b>\n"
+            f"❌ <b>[ERROR] {component}</b>\n"
             f"<i>{now}</i>\n"
             f"<code>{str(error)[:300]}</code>"
         )
@@ -70,7 +82,7 @@ class Notifier:
         """Send startup notification."""
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         text = (
-            f"\u2705 <b>ETF Momentum Started</b>\n"
+            f"✅ <b>ETF Momentum Started</b>\n"
             f"Time: {now}\n"
             f"Symbols: {symbols_count}\n"
             f"Mode: Production"

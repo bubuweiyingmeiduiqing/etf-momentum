@@ -1,6 +1,6 @@
-"""Email notification via SMTP (Gmail SSL port 465)."""
+﻿"""Email notification via SMTP (Gmail SSL port 465)."""
 
-import logging, smtplib
+import logging, smtplib, time
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from email.header import Header
@@ -25,11 +25,24 @@ class EmailNotifier:
             self.recipients = ec.get("recipients", [])
         self.max_retries = ec.get("max_retries", 2)
 
+        # Log config state on init
+        if self.enabled:
+            if not self.sender:
+                logger.warning("Email enabled but sender not set")
+            if not self.password:
+                logger.warning("Email enabled but password not set")
+            if not self.recipients:
+                logger.warning("Email enabled but no recipients configured")
+        else:
+            logger.info("Email notifier DISABLED in config")
+
     def send(self, subject: str, body: str, html: bool = True) -> bool:
         if not self.enabled:
+            logger.debug("Email disabled, skipping send")
             return False
         if not self.sender or not self.password or not self.recipients:
-            logger.warning("Email config incomplete")
+            logger.warning("Email config incomplete (sender=%s, password_set=%s, recipients=%d)",
+                           bool(self.sender), bool(self.password), len(self.recipients))
             return False
 
         for attempt in range(1, self.max_retries + 1):
@@ -54,12 +67,14 @@ class EmailNotifier:
 
                 logger.info("Email sent to %d recipients", len(self.recipients))
                 return True
+            except smtplib.SMTPAuthenticationError as e:
+                logger.error("Email AUTH FAILED: check Gmail App Password (not account password). Error: %s", e)
+                return False
             except Exception as e:
                 if attempt < self.max_retries:
-                    import time
-                    logger.warning("Email attempt %d failed: %s, retrying...", attempt, e)
+                    logger.warning("Email attempt %d/%d failed: %s, retrying...", attempt, self.max_retries, e)
                     time.sleep(3)
                 else:
-                    logger.error("Email send failed: %s", e)
+                    logger.error("Email send exhausted after %d attempts: %s", self.max_retries, e)
                     return False
         return False

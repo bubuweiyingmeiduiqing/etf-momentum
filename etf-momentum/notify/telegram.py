@@ -1,4 +1,4 @@
-"""Telegram notification via HTTP Bot API (no async dependency)"""
+﻿"""Telegram notification via HTTP Bot API (no async dependency)"""
 
 import logging, json, time
 import requests
@@ -56,6 +56,36 @@ class TelegramNotifier:
     def send_report(self, title: str, content: str) -> bool:
         text = f"<b>{title}</b>\n\n{content}"
         return self.send(text)
+
+    def send_long(self, title: str, content: str, parse_mode: str = "HTML") -> int:
+        """Send long message split into Telegram-safe chunks (<4096 chars). Returns chunk count."""
+        if not self.enabled or not self.token or not self.chat_id:
+            return 0
+        header = f"<b>{title}</b>\n\n"
+        header_len = len(header)
+        # Split content by paragraph boundaries
+        paragraphs = content.split("\n\n")
+        chunks = []
+        current = header
+        for para in paragraphs:
+            candidate = current + ("\n\n" if current != header else "") + para
+            if len(candidate) > 4000:
+                if current != header:
+                    chunks.append(current)
+                current = header + para if para else header
+            else:
+                current = candidate
+        if current != header:
+            chunks.append(current)
+        if not chunks and content:
+            # Fallback: just truncate
+            chunks = [header + content[:3900] + "\n\n<i>(truncated)</i>"]
+        for i, chunk in enumerate(chunks):
+            suffix = f" ({i+1}/{len(chunks)})" if len(chunks) > 1 else ""
+            ok = self.send(chunk[:4096] + suffix, parse_mode)
+            if not ok:
+                logger.error("Telegram chunk %d/%d failed", i+1, len(chunks))
+        return len(chunks)
 
     def get_chat_id(self) -> str:
         """Fetch the latest chat_id from updates (run once after user sends /start to bot)."""
