@@ -287,11 +287,7 @@ def main():
             logger.error("Failed to generate report for %s", args.report)
             try:
                 notifier.telegram.send(
-                    f"❌ <b>Report Failed</b>
-"
-                    f"Date: {args.report}
-"
-                    f"Reason: No valid ETF data (check data/etf_momentum.db)"
+                    "Report Failed\nDate: " + args.report + "\nReason: No valid ETF data"
                 )
             except Exception:
                 pass
