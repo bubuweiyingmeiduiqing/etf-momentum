@@ -30,11 +30,24 @@ class Notifier:
 
     def send_report(self, report: str):
         self.telegram.send_report("ETF Momentum Report", report)
-        self.email.send(
-            subject="ETF Momentum Report",
-            body=report.replace("\n", "<br>"),
-            html=True,
-        )
+
+    def send_daily_report(self, trade_date: str, html_content: str):
+        """Send daily report via Telegram summary + full HTML email."""
+        # Telegram: brief summary
+        self.telegram.send_report(f"ETF Daily Report {trade_date}", f"Report ready for {trade_date}")
+
+        # Email: full HTML report
+        subject = f"ETF {trade_date}"
+        body = f"""<html>
+<body style="font-family:Arial,'Microsoft YaHei',sans-serif;line-height:1.65;color:#222;">
+  <h1 style="color:#0b5394;border-bottom:2px solid #0b5394;padding-bottom:8px;">ETF</h1>
+  <p style="color:#666;">{trade_date}</p>
+  <section>{html_content}</section>
+  <hr style="margin:24px 0;border:0;border-top:1px solid #ddd;">
+  <p style="font-size:12px;color:#888;"></p>
+</body>
+</html>"""
+        self.email.send(subject=subject, body=body, html=True)
 
     def send_error(self, component: str, error: Exception, context: str = ""):
         """Send exception alert to Telegram."""

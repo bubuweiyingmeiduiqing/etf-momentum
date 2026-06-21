@@ -107,7 +107,7 @@ def run_all(config, shutdown_handler: GracefulShutdown = None):
     health_checker.register("database", db.health_check)
 
     # 创建日报生成器
-    report_gen = ReportGenerator(config, db)
+    report_gen = ReportGenerator(config, db, notifier=notifier)
 
     # 存储全局引用
     _global_components.update({
@@ -161,7 +161,7 @@ def run_scheduler_only(config, shutdown_handler: GracefulShutdown = None):
     alerter = Alerter(config, database=db)
     notifier = Notifier(config)
 
-    report_gen = ReportGenerator(config, db)
+    report_gen = ReportGenerator(config, db, notifier=notifier)
     scheduler = TaskScheduler(config, fetcher, indicator_calc, alerter, notifier, report_generator=report_gen, db=db)
     scheduler.start()
     notifier.send_startup(len(fetcher.symbols))
@@ -239,6 +239,7 @@ def main():
     parser.add_argument("--daemon", action="store_true", help="守护进程模式")
     parser.add_argument("--pid-file", default=None, help="PID 文件路径")
     parser.add_argument("--config", default=None, help="配置文件路径")
+    parser.add_argument("--report", default=None, help="生成指定日期的日报 (例如: 2026-06-18)")
     parser.add_argument("--get-chat-id", action="store_true", help="获取Telegram chat_id并保存到配置")
     args = parser.parse_args()
 
@@ -275,6 +276,15 @@ def main():
         run_fetch(config)
     elif args.daemon:
         run_daemon(config)
+    elif args.report:
+        db = Database(config["database"]["path"])
+        notifier = Notifier(config)
+        report_gen = ReportGenerator(config, db, notifier=notifier)
+        html = report_gen.generate_daily_report(args.report)
+        if html:
+            logger.info("Report generated for %s", args.report)
+        else:
+            logger.error("Failed to generate report for %s", args.report)
     elif args.web:
         run_scheduler = config.get("web", {}).get("also_run_scheduler", False)
         if run_scheduler:

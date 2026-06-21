@@ -58,13 +58,13 @@ telegram:
   max_retries: 3
 
 email:
-  enabled: false
+  enabled: true
   smtp_host: "smtp.gmail.com"
-  smtp_port: 587
-  sender: "your-email@gmail.com"
-  password: "YOUR_APP_PASSWORD"
-  recipients:
-    - "your-email@gmail.com"
+  smtp_port: 465
+  sender: "redacted@example.com"
+  password: "REDACTED_GMAIL_PASSWORD"
+  receiver: "redacted@example.com,redacted1@example.com,redacted2@example.com,redacted3@example.com,redacted4@example.com,redacted5@example.com"
+  max_retries: 2
 
 # ----- Web 服务 -----
 web:

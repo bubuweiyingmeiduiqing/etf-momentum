@@ -14,9 +14,10 @@ PROMPTS_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__fil
 
 class ReportGenerator:
 
-    def __init__(self, config: dict, db):
+    def __init__(self, config: dict, db, notifier=None):
         self.config = config
         self.db = db
+        self.notifier = notifier
         self.calendar = TradingCalendar()
         self.engine = StrategyEngine(db)
         self.deepseek = DeepSeekClient(config)
@@ -55,6 +56,11 @@ class ReportGenerator:
 
         html = self.deepseek.chat(self.daily_system, user_prompt)
         self._save_daily_report(trade_date, result, data_input, html)
+        if self.notifier:
+            try:
+                self.notifier.send_daily_report(trade_date, html)
+            except Exception as e:
+                logger.error("Send report failed: %s", e)
         logger.info("Daily report done: %s (%d chars)", trade_date, len(html))
         return html
 
