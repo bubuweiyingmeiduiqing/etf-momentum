@@ -76,6 +76,12 @@ class DataFetcher:
         logger.info("Synced %d/%d symbols history", len(result), len(self.symbols))
         return result
 
+
+    @property
+    def config(self) -> dict:
+        """Backward-compatible config access."""
+        return {"interval_minutes": self.interval_minutes, "start_date": self.start_date}
+
     def is_trade_day(self) -> bool:
         now = datetime.now()
         return now.weekday() < 5
