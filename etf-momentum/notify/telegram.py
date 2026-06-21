@@ -1,9 +1,46 @@
 ﻿"""Telegram notification via HTTP Bot API (no async dependency)"""
 
-import logging, json, time
+import logging, json, time, re
 import requests
 
 logger = logging.getLogger(__name__)
+
+# Telegram HTML parse mode only supports these tags
+TELEGRAM_ALLOWED_TAGS = {"b", "i", "u", "s", "code", "pre", "a", "tg-spoiler"}
+
+
+def strip_unsupported_html(html_text: str) -> str:
+    """Remove HTML tags that Telegram parse mode does not support.
+    Converts <h1>-<h6> to <b>, <li> to bullet prefix, strips <p>/<div>/<span>/<ul>/<ol>/<table>/<section>/<hr>/<br/>.
+    """
+    # Replace heading tags with bold
+    for tag in ["h1", "h2", "h3", "h4", "h5", "h6"]:
+        html_text = re.sub(rf"<{tag}[^>]*>", "<b>", html_text, flags=re.IGNORECASE)
+        html_text = re.sub(rf"</{tag}>", "</b>\n", html_text, flags=re.IGNORECASE)
+
+    # Replace <li> with "• " prefix, strip </li>
+    html_text = re.sub(r"<li[^>]*>", "• ", html_text, flags=re.IGNORECASE)
+    html_text = re.sub(r"</li>", "\n", html_text, flags=re.IGNORECASE)
+
+    # Replace <br/> and <br> with newline
+    html_text = re.sub(r"<br\s*/?>", "\n", html_text, flags=re.IGNORECASE)
+
+    # Replace </ul> and </ol> with double newline
+    html_text = re.sub(r"</(ul|ol)>", "\n", html_text, flags=re.IGNORECASE)
+
+    # Replace </p> with double newline
+    html_text = re.sub(r"</p>", "\n\n", html_text, flags=re.IGNORECASE)
+
+    # Strip all remaining HTML tags that Telegram doesn't support
+    html_text = re.sub(r"</?(?:div|span|section|article|header|footer|nav|aside|main|table|thead|tbody|tr|td|th|hr|ol|ul|p|br|img|svg|style|script|meta|link|head|body|html|form|input|button|select|option|label|fieldset|legend|iframe|object|embed|video|audio|source|canvas|figure|figcaption|blockquote|details|summary|dialog|menu|menuitem|wbr|noscript|map|area|col|colgroup|caption)[^>]*>", "", html_text, flags=re.IGNORECASE)
+
+    # Collapse multiple consecutive newlines
+    html_text = re.sub(r"\n{4,}", "\n\n\n", html_text)
+
+    # Strip leading/trailing whitespace
+    html_text = html_text.strip()
+
+    return html_text
 
 
 class TelegramNotifier:
@@ -19,10 +56,18 @@ class TelegramNotifier:
     def send(self, message: str, parse_mode: str = "HTML") -> bool:
         if not self.enabled or not self.token or not self.chat_id:
             return False
+        # Sanitize HTML for Telegram
+        safe_message = strip_unsupported_html(message) if parse_mode == "HTML" else message
+        # Truncate to Telegram limit
+        safe_message = safe_message[:4096]
+        # If after sanitization the message is empty or just bold tags, skip
+        clean = re.sub(r"</?b>", "", safe_message).strip()
+        if not clean:
+            return True  # nothing meaningful to send
         url = f"{self.api_base}/sendMessage"
         payload = {
             "chat_id": self.chat_id,
-            "text": message[:4096],
+            "text": safe_message,
             "parse_mode": parse_mode,
         }
         for attempt in range(1, self.max_retries + 1):
@@ -63,7 +108,6 @@ class TelegramNotifier:
             return 0
         header = f"<b>{title}</b>\n\n"
         header_len = len(header)
-        # Split content by paragraph boundaries
         paragraphs = content.split("\n\n")
         chunks = []
         current = header
@@ -78,7 +122,6 @@ class TelegramNotifier:
         if current != header:
             chunks.append(current)
         if not chunks and content:
-            # Fallback: just truncate
             chunks = [header + content[:3900] + "\n\n<i>(truncated)</i>"]
         for i, chunk in enumerate(chunks):
             suffix = f" ({i+1}/{len(chunks)})" if len(chunks) > 1 else ""
