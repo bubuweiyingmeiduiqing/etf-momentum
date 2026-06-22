@@ -206,7 +206,7 @@ class StrategyEngine:
         return ind
 
 
-﻿    def build_formatted_data(self, result, previous_positions=None):
+    def build_formatted_data(self, result, previous_positions=None):
         """Build COMPLETE pre-formatted HTML data sections. Model only adds commentary."""
         sections = {}
 
