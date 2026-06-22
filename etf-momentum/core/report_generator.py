@@ -54,6 +54,12 @@ class ReportGenerator:
             "\u662f\uff08\u5468\u4e00\u8c03\u4ed3\u65e5\uff09" if is_monday else "\u5426")
         user_prompt = user_prompt.replace("{DATA_INPUT}", data_json)
 
+        # Inject actual closing prices as anti-hallucination anchors
+        for etf in result.etfs:
+            placeholder = "{C_" + etf.code + "}"
+            price_str = f"{etf.close:.3f}" if etf.close else "N/A"
+            user_prompt = user_prompt.replace(placeholder, price_str)
+
         html = self.deepseek.chat(self.daily_system, user_prompt)
         self._save_daily_report(trade_date, result, data_input, html)
         if self.notifier:
