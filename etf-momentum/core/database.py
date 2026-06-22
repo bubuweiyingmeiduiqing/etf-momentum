@@ -401,5 +401,5 @@ class Database:
     def get_daily_summary(self, symbol, limit=40):
         with self._connect() as conn:
             rows = conn.execute(
-                "SELECT * FROM daily_summary WHERE symbol = ? ORDER BY date ASC LIMIT ?", (symbol, limit)).fetchall()
+                "SELECT * FROM (SELECT * FROM daily_summary WHERE symbol = ? ORDER BY date DESC LIMIT ?) ORDER BY date ASC", (symbol, limit)).fetchall()
             return [dict(row) for row in rows]
