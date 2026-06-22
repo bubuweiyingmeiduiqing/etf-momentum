@@ -9,11 +9,11 @@ logger = logging.getLogger(__name__)
 
 STRATEGY_ETF_POOL = {
     "510500": {"name": "中证500ETF", "market": "A股", "cross_border": False},
-    "510890": {"name": "红利ETF", "market": "A股", "cross_border": False},
+    "510300": {"name": "沪深300ETF", "market": "A股", "cross_border": False},
     "513100": {"name": "纳指ETF", "market": "美股跨境", "cross_border": True},
     "513520": {"name": "日经ETF", "market": "日股跨境", "cross_border": True},
     "588000": {"name": "科创50ETF", "market": "A股", "cross_border": False},
-    "159915": {"name": "创业板ETF", "market": "A股", "cross_border": False},
+    "510050": {"name": "上证50ETF", "market": "A股", "cross_border": False},
 }
 BOND_ETF = {"code": "511010", "name": "国债ETF"}
 TOTAL_CAPITAL = 100000.0
