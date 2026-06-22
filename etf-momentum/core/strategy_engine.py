@@ -1,4 +1,4 @@
-﻿'''绛栫暐寮曟搸 鈥斺€?鍩轰簬 v1-base.py 鐨勬寚鏍囪绠椾笌淇″彿鐢熸垚'''
+'''策略引擎 —— 基于 v1-base.py 的指标计算与信号生成'''
 
 import logging
 import numpy as np
@@ -8,14 +8,14 @@ from typing import Optional
 logger = logging.getLogger(__name__)
 
 STRATEGY_ETF_POOL = {
-    "510500": {"name": "涓瘉500ETF", "market": "A鑲?, "cross_border": False},
-    "510890": {"name": "绾㈠埄ETF", "market": "A鑲?, "cross_border": False},
-    "513100": {"name": "绾虫寚ETF", "market": "缇庤偂璺ㄥ", "cross_border": True},
-    "513520": {"name": "鏃ョ粡ETF", "market": "鏃ヨ偂璺ㄥ", "cross_border": True},
-    "588000": {"name": "绉戝垱50ETF", "market": "A鑲?, "cross_border": False},
-    "159915": {"name": "鍒涗笟鏉縀TF", "market": "A鑲?, "cross_border": False},
+    "510500": {"name": "中证500ETF", "market": "A股", "cross_border": False},
+    "510890": {"name": "红利ETF", "market": "A股", "cross_border": False},
+    "513100": {"name": "纳指ETF", "market": "美股跨境", "cross_border": True},
+    "513520": {"name": "日经ETF", "market": "日股跨境", "cross_border": True},
+    "588000": {"name": "科创50ETF", "market": "A股", "cross_border": False},
+    "159915": {"name": "创业板ETF", "market": "A股", "cross_border": False},
 }
-BOND_ETF = {"code": "511010", "name": "鍥藉€篍TF"}
+BOND_ETF = {"code": "511010", "name": "国债ETF"}
 TOTAL_CAPITAL = 100000.0
 MAX_PREMIUM_RATE = 0.015
 VOL_TRIGGER_ATR = 0.035
@@ -101,8 +101,8 @@ class StrategyEngine:
             result.avg_pool_atr_pct = float(np.mean(all_atr_pcts))
             result.vol_trigger_active = result.avg_pool_atr_pct > VOL_TRIGGER_ATR
             result.vol_trigger_detail = (
-                f"鍏ㄨ祫浜у钩鍧嘇TR {result.avg_pool_atr_pct*100:.2f}%锛?
-                f"{'宸茶Е鍙? if result.vol_trigger_active else '鏈Е鍙?}3.5%鎴柇闃堝€?
+                f"全资产平均ATR {result.avg_pool_atr_pct*100:.2f}%，"
+                f"{'已触发' if result.vol_trigger_active else '未触发'}3.5%截断阈值"
             )
         eligible = [e for e in result.etfs if e.filter_pass and not e.premium_exceeded and (e.risk_adjusted_score or 0) > 0]
         eligible.sort(key=lambda x: x.risk_adjusted_score or 0, reverse=True)
@@ -161,11 +161,11 @@ class StrategyEngine:
             sma5_prev = round(float(np.mean(closes[-8:-3])), 4) if len(closes) >= 8 else None
             if sma5_prev:
                 if ind.sma5 > sma5_prev * 1.003:
-                    ind.sma5_direction = "涓婅"
+                    ind.sma5_direction = "上行"
                 elif ind.sma5 < sma5_prev * 0.997:
-                    ind.sma5_direction = "涓嬭"
+                    ind.sma5_direction = "下行"
                 else:
-                    ind.sma5_direction = "璧板钩"
+                    ind.sma5_direction = "走平"
         if len(closes) >= 20:
             ind.sma20 = round(float(np.mean(closes[-20:])), 4)
             ind.close_above_sma20 = latest > ind.sma20
@@ -173,12 +173,12 @@ class StrategyEngine:
             if sma20_prev and sma20_prev != 0:
                 ind.sma20_slope_pct = round((ind.sma20 - sma20_prev) / sma20_prev * 100, 2)
                 if ind.sma20_slope_pct > 0.3:
-                    ind.sma20_direction = "涓婅"
+                    ind.sma20_direction = "上行"
                 elif ind.sma20_slope_pct < -0.3:
-                    ind.sma20_direction = "涓嬭"
+                    ind.sma20_direction = "下行"
                 else:
-                    ind.sma20_direction = "璧板钩"
-            ind.filter_pass = ind.close_above_sma20 and ind.sma20_direction != "涓嬭"
+                    ind.sma20_direction = "走平"
+            ind.filter_pass = ind.close_above_sma20 and ind.sma20_direction != "下行"
         if len(closes) >= 6:
             ind.return_5d_pct = round((closes[-1] / closes[-6] - 1) * 100, 2)
         if len(closes) >= 11:
@@ -205,9 +205,9 @@ class StrategyEngine:
         data = {
             "report_date": result.trade_date,
             "is_rebalance_day": datetime.now().weekday() == 0,
-            "rebalance_weekday": "鍛ㄤ竴",
+            "rebalance_weekday": "周一",
             "market_environment": {
-                "benchmark_index": "娌繁300",
+                "benchmark_index": "沪深300",
                 "benchmark_return_20d_pct": 0,
                 "avg_pool_atr_pct": round(result.avg_pool_atr_pct * 100, 2),
                 "vol_trigger_active": result.vol_trigger_active,
@@ -244,4 +244,3 @@ class StrategyEngine:
             }
             data["etfs"].append(entry)
         return data
-
