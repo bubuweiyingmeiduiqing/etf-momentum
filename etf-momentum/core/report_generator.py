@@ -45,14 +45,14 @@ class ReportGenerator:
 
         prev_positions = self._load_previous_positions()
         data_input = self.engine.build_data_input(result, prev_positions)
-        data_json = json.dumps(data_input, cls=NumpyEncoder, ensure_ascii=False, indent=2)
+        formatted_data = self.engine.build_formatted_data(result, prev_positions)
 
         is_monday = datetime.now().weekday() == 0
         user_prompt = self.daily_template
         user_prompt = user_prompt.replace("{REPORT_DATE}", trade_date)
         user_prompt = user_prompt.replace("{IS_REBALANCE_DAY}",
             "\u662f\uff08\u5468\u4e00\u8c03\u4ed3\u65e5\uff09" if is_monday else "\u5426")
-        user_prompt = user_prompt.replace("{DATA_INPUT}", data_json)
+        user_prompt = user_prompt.replace("{DATA_INPUT}", formatted_data)
 
         # Inject actual closing prices as anti-hallucination anchors
         for etf in result.etfs:

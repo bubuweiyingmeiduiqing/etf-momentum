@@ -205,6 +205,72 @@ class StrategyEngine:
                 ind.volume_vs_20d_avg_ratio = round(float(volumes[-1] / vavg), 2)
         return ind
 
+
+    def build_formatted_data(self, result, previous_positions=None):
+        """Build pre-formatted data tables for the AI prompt - no JSON parsing needed."""
+        lines = []
+
+        # === Price & Momentum Table ===
+        lines.append("<h3>实盘数据 — 价格与动量指标（仅使用以下数值）</h3>")
+        lines.append('<table border="1" cellpadding="4" cellspacing="0" style="border-collapse:collapse; width:100%;">')
+        lines.append('<tr style="background:#0b5394;color:#fff;"><th>代码</th><th>名称</th><th>收盘价</th><th>20日收益%</th><th>20日波动%</th><th>风险调整得分</th><th>排名</th></tr>')
+        for etf in result.etfs:
+            lines.append(f'<tr><td>{etf.code}</td><td>{etf.name}</td>'
+                         f'<td><b>{etf.close:.3f}</b></td>'
+                         f'<td>{etf.return_20d_pct if etf.return_20d_pct else "N/A"}</td>'
+                         f'<td>{etf.volatility_20d_pct if etf.volatility_20d_pct else "N/A"}</td>'
+                         f'<td>{etf.risk_adjusted_score if etf.risk_adjusted_score else "N/A"}</td>'
+                         f'<td>{etf.score_rank if etf.score_rank else "-"}</td></tr>')
+        lines.append('</table>')
+
+        # === Trend Filter Table ===
+        lines.append("<h3>趋势过滤数据</h3>")
+        lines.append('<table border="1" cellpadding="4" cellspacing="0" style="border-collapse:collapse; width:100%;">')
+        lines.append('<tr style="background:#0b5394;color:#fff;"><th>代码</th><th>SMA20</th><th>SMA20方向</th><th>SMA20斜率%</th><th>价格>SMA20</th><th>过滤通过</th><th>SMA5</th><th>SMA5方向</th></tr>')
+        for etf in result.etfs:
+            lines.append(f'<tr><td>{etf.code}</td>'
+                         f'<td>{etf.sma20 if etf.sma20 else "N/A"}</td>'
+                         f'<td>{etf.sma20_direction}</td>'
+                         f'<td>{etf.sma20_slope_pct if etf.sma20_slope_pct else "N/A"}</td>'
+                         f'<td>{"是" if etf.close_above_sma20 else "否"}</td>'
+                         f'<td>{"通过" if etf.filter_pass else "未通过"}</td>'
+                         f'<td>{etf.sma5 if etf.sma5 else "N/A"}</td>'
+                         f'<td>{etf.sma5_direction}</td></tr>')
+        lines.append('</table>')
+
+        # === ATR Table ===
+        lines.append("<h3>波动率(ATR)数据</h3>")
+        lines.append('<table border="1" cellpadding="4" cellspacing="0" style="border-collapse:collapse; width:100%;">')
+        lines.append('<tr style="background:#0b5394;color:#fff;"><th>代码</th><th>ATR(14日)</th><th>ATR%</th><th>5日收益%</th><th>10日收益%</th><th>量比</th></tr>')
+        for etf in result.etfs:
+            lines.append(f'<tr><td>{etf.code}</td>'
+                         f'<td>{etf.atr_14d if etf.atr_14d else "N/A"}</td>'
+                         f'<td>{etf.atr_pct if etf.atr_pct else "N/A"}</td>'
+                         f'<td>{etf.return_5d_pct if etf.return_5d_pct else "N/A"}</td>'
+                         f'<td>{etf.return_10d_pct if etf.return_10d_pct else "N/A"}</td>'
+                         f'<td>{etf.volume_vs_20d_avg_ratio if etf.volume_vs_20d_avg_ratio else "N/A"}</td></tr>')
+        lines.append('</table>')
+
+        # === Market Environment ===
+        lines.append("<h3>市场环境</h3>")
+        lines.append(f"<p>全资产平均ATR%: <b>{result.avg_pool_atr_pct:.2f}%</b> | "
+                     f"波动率截断: <b>{'已触发(防御模式)' if result.vol_trigger_active else '未触发(进攻模式)'}</b> | "
+                     f"总资金: 100,000元</p>")
+        if result.vol_trigger_detail:
+            lines.append(f"<p>{result.vol_trigger_detail}</p>")
+
+        # === Candidates ===
+        if result.candidates:
+            lines.append("<h3>备选池（已通过全部过滤）</h3>")
+            lines.append("<ul>")
+            for c in result.candidates:
+                lines.append(f"<li>{c[0]} {c[1]} — 得分: {c[2]}, ATR%: {c[3]}</li>")
+            lines.append("</ul>")
+        else:
+            lines.append("<h3>备选池</h3><p>无品种通过全部过滤条件</p>")
+
+        return "\n".join(lines)
+
     def build_data_input(self, result, previous_positions=None, cross_border_premiums=None):
         from datetime import datetime
         data = {
@@ -214,7 +280,7 @@ class StrategyEngine:
             "market_environment": {
                 "benchmark_index": "沪深300",
                 "benchmark_return_20d_pct": 0,
-                "avg_pool_atr_pct": round(result.avg_pool_atr_pct * 100, 2),
+                "avg_pool_atr_pct": round(result.avg_pool_atr_pct, 2),
                 "vol_trigger_active": bool(result.vol_trigger_active),
                 "vol_trigger_detail": result.vol_trigger_detail,
             },
