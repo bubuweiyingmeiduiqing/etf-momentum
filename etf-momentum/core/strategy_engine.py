@@ -2,6 +2,7 @@
 
 import logging
 import numpy as np
+import json
 from dataclasses import dataclass, field, asdict
 from typing import Optional
 
@@ -52,7 +53,11 @@ class EtfIndicators:
     score_rank: int = 0
     score_eligible: bool = False
     def to_dict(self) -> dict:
-        return asdict(self)
+        d = asdict(self)
+        for k, v in d.items():
+            if v is not None and hasattr(v, "item"):
+                d[k] = v.item()
+        return d
 
 
 @dataclass
@@ -71,7 +76,7 @@ class StrategyResult:
             "trade_date": self.trade_date,
             "market_environment": {
                 "avg_pool_atr_pct": round(self.avg_pool_atr_pct, 4),
-                "vol_trigger_active": self.vol_trigger_active,
+                "vol_trigger_active": bool(self.vol_trigger_active),
                 "vol_trigger_detail": self.vol_trigger_detail,
             },
             "etfs": [e.to_dict() for e in self.etfs],
@@ -98,6 +103,7 @@ class StrategyEngine:
                     all_atr_pcts.append(ind.atr_pct)
         if all_atr_pcts:
             import numpy as np
+import json
             result.avg_pool_atr_pct = float(np.mean(all_atr_pcts))
             result.vol_trigger_active = result.avg_pool_atr_pct > VOL_TRIGGER_ATR
             result.vol_trigger_detail = (
@@ -137,6 +143,7 @@ class StrategyEngine:
 
     def _compute_one(self, code, name, trade_date, cross_border):
         import numpy as np
+import json
         hist = self.db.get_daily_summary(code, limit=40)
         if not hist or len(hist) < 9:
             logger.warning("%s history <20 rows", code)
@@ -244,3 +251,10 @@ class StrategyEngine:
             }
             data["etfs"].append(entry)
         return data
+
+
+class NumpyEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if hasattr(obj, "item"):
+            return obj.item()
+        return super().default(obj)

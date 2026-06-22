@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 from typing import Optional
 
 from core.trading_calendar import TradingCalendar
-from core.strategy_engine import StrategyEngine
+from core.strategy_engine import StrategyEngine, NumpyEncoder
 from core.deepseek_client import DeepSeekClient
 
 logger = logging.getLogger(__name__)
@@ -45,7 +45,7 @@ class ReportGenerator:
 
         prev_positions = self._load_previous_positions()
         data_input = self.engine.build_data_input(result, prev_positions)
-        data_json = json.dumps(data_input, ensure_ascii=False, indent=2)
+        data_json = json.dumps(data_input, cls=NumpyEncoder, ensure_ascii=False, indent=2)
 
         is_monday = datetime.now().weekday() == 0
         user_prompt = self.daily_template
@@ -81,7 +81,7 @@ class ReportGenerator:
         user_prompt = user_prompt.replace("{{end_date}}", end_date)
         user_prompt = user_prompt.replace("{{total_trading_days}}", str(review_data.get("total_trading_days", 0)))
         user_prompt = user_prompt.replace("{{rebalance_count}}", str(review_data.get("rebalance_count", 0)))
-        user_prompt = user_prompt.replace("{{REVIEW_DATA}}", json.dumps(review_data, ensure_ascii=False, indent=2))
+        user_prompt = user_prompt.replace("{{REVIEW_DATA}}", json.dumps(review_data, cls=NumpyEncoder, ensure_ascii=False, indent=2))
         user_prompt = user_prompt.replace("{{current_prompt_version}}", "v3.0")
 
         html = self.deepseek.chat(self.review_system, user_prompt)
@@ -102,10 +102,10 @@ class ReportGenerator:
     def _save_daily_report(self, trade_date, result, data_input, html):
         self.db.insert_daily_report(
             trade_date=trade_date,
-            strategy_result=json.dumps(result.to_dict(), ensure_ascii=False),
-            data_input=json.dumps(data_input, ensure_ascii=False),
+            strategy_result=json.dumps(result.to_dict(), cls=NumpyEncoder, ensure_ascii=False),
+            data_input=json.dumps(data_input, cls=NumpyEncoder, ensure_ascii=False),
             html_content=html,
-            position_advice=json.dumps(data_input.get("current_positions", {}), ensure_ascii=False),
+            position_advice=json.dumps(data_input.get("current_positions", {}), cls=NumpyEncoder, ensure_ascii=False),
         )
 
     def _save_review_report(self, start_date, end_date, review_type, html):
