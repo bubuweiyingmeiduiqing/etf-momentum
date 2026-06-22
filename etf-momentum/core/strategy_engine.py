@@ -103,7 +103,6 @@ class StrategyEngine:
                     all_atr_pcts.append(ind.atr_pct)
         if all_atr_pcts:
             import numpy as np
-import json
             result.avg_pool_atr_pct = float(np.mean(all_atr_pcts))
             result.vol_trigger_active = result.avg_pool_atr_pct > VOL_TRIGGER_ATR
             result.vol_trigger_detail = (
@@ -143,7 +142,6 @@ import json
 
     def _compute_one(self, code, name, trade_date, cross_border):
         import numpy as np
-import json
         hist = self.db.get_daily_summary(code, limit=40)
         if not hist or len(hist) < 9:
             logger.warning("%s history <20 rows", code)
