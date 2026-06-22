@@ -223,10 +223,10 @@ class StrategyEngine:
             st = ", ".join(status)
             rows.append("<tr><td>" + str(etf.score_rank or "-") + "</td><td>" + etf.code + "</td><td>" + etf.name + "</td><td>" + ret20 + "</td><td>" + vol20 + "</td><td>" + score + "</td><td>" + st + "</td></tr>")
         ts = "<p><b>Timestamp:</b> " + result.trade_date + " | Computed Locally</p>"
-        sections["momentum"] = (ts + "<h2>Momentum Ranking</h2>" + NL
-            + "<table border=1 cellpadding=6 cellspacing=0 style='border-collapse:collapse;width:100%'>" + NL
-            + "<tr style='background:#0b5394;color:#fff'><th>Rank</th><th>Code</th><th>Name</th><th>20dRet%</th><th>20dVol%</th><th>Score</th><th>Status</th></tr>" + NL
-            + "".join(rows) + NL + "</table>")
+        sections["momentum"] = (ts + "<h2>Momentum Ranking</h2>" + chr(10)
+            + "<table border=1 cellpadding=6 cellspacing=0 style='border-collapse:collapse;width:100%'>" + chr(10)
+            + "<tr style='background:#0b5394;color:#fff'><th>Rank</th><th>Code</th><th>Name</th><th>20dRet%</th><th>20dVol%</th><th>Score</th><th>Status</th></tr>" + chr(10)
+            + "".join(rows) + chr(10) + "</table>")
 
         # Trend Filter
         rows2 = []
@@ -239,10 +239,10 @@ class StrategyEngine:
             passed = "PASS" if etf.filter_pass else "FAIL"
             rows2.append("<tr><td>" + etf.code + "</td><td>" + etf.name + "</td><td><b>" + price + "</b></td><td>" + sma20 + "</td><td>" + etf.sma20_direction + "</td><td>" + slope + "</td><td>" + above + "</td><td>" + passed + "</td><td>" + sma5 + "</td><td>" + etf.sma5_direction + "</td></tr>")
         ts2 = "<p><b>Timestamp:</b> " + result.trade_date + " | DO NOT MODIFY</p>"
-        sections["trend"] = (ts2 + "<h2>Trend Filter & SMA</h2>" + NL
-            + "<table border=1 cellpadding=6 cellspacing=0 style='border-collapse:collapse;width:100%'>" + NL
-            + "<tr style='background:#0b5394;color:#fff'><th>Code</th><th>Name</th><th>CLOSE</th><th>SMA20</th><th>Dir</th><th>Slope</th><th>&gt;SMA20</th><th>Filter</th><th>SMA5</th><th>SMA5Dir</th></tr>" + NL
-            + "".join(rows2) + NL + "</table>")
+        sections["trend"] = (ts2 + "<h2>Trend Filter & SMA</h2>" + chr(10)
+            + "<table border=1 cellpadding=6 cellspacing=0 style='border-collapse:collapse;width:100%'>" + chr(10)
+            + "<tr style='background:#0b5394;color:#fff'><th>Code</th><th>Name</th><th>CLOSE</th><th>SMA20</th><th>Dir</th><th>Slope</th><th>&gt;SMA20</th><th>Filter</th><th>SMA5</th><th>SMA5Dir</th></tr>" + chr(10)
+            + "".join(rows2) + chr(10) + "</table>")
 
         # ATR / Volatility
         rows3 = []
@@ -255,11 +255,11 @@ class StrategyEngine:
         avg_atr = str(round(result.avg_pool_atr_pct, 2))
         trigger = "DEFENSE" if result.vol_trigger_active else "ATTACK"
         ts3 = "<p><b>Timestamp:</b> " + result.trade_date + " | ATR computed locally</p>"
-        sections["volatility"] = (ts3 + "<h2>Volatility & Risk</h2>" + NL
-            + "<p>Avg Pool ATR%: <b>" + avg_atr + "%</b> | Mode: <b>" + trigger + "</b></p>" + NL
-            + "<table border=1 cellpadding=6 cellspacing=0 style='border-collapse:collapse;width:100%'>" + NL
-            + "<tr style='background:#0b5394;color:#fff'><th>Code</th><th>Name</th><th>ATR14</th><th>ATR%</th><th>5dRet%</th><th>10dRet%</th></tr>" + NL
-            + "".join(rows3) + NL + "</table>")
+        sections["volatility"] = (ts3 + "<h2>Volatility & Risk</h2>" + chr(10)
+            + "<p>Avg Pool ATR%: <b>" + avg_atr + "%</b> | Mode: <b>" + trigger + "</b></p>" + chr(10)
+            + "<table border=1 cellpadding=6 cellspacing=0 style='border-collapse:collapse;width:100%'>" + chr(10)
+            + "<tr style='background:#0b5394;color:#fff'><th>Code</th><th>Name</th><th>ATR14</th><th>ATR%</th><th>5dRet%</th><th>10dRet%</th></tr>" + chr(10)
+            + "".join(rows3) + chr(10) + "</table>")
 
         # Candidates
         if result.candidates:
