@@ -64,10 +64,16 @@ class DataFetcher:
                 if self.db:
                     for _, row in df.iterrows():
                         try:
+                            date_str = str(row["date"])[:10]
+                            o = row.get("open")
+                            h = row.get("high")
+                            l = row.get("low")
+                            c = row.get("close")
+                            if not self.validate_price(sym, date_str, o, h, l, c):
+                                continue
                             self.db.upsert_daily_summary(sym, {
-                                "date": str(row["date"])[:10],
-                                "open": row.get("open"), "high": row.get("high"),
-                                "low": row.get("low"), "close": row.get("close"),
+                                "date": date_str,
+                                "open": o, "high": h, "low": l, "close": c,
                                 "volume": row.get("volume"),
                                 "change_pct": row.get("change_pct"),
                             })
@@ -76,6 +82,25 @@ class DataFetcher:
         logger.info("Synced %d/%d symbols history", len(result), len(self.symbols))
         return result
 
+
+
+    @staticmethod
+    def validate_price(symbol: str, date: str, o: float, h: float, l: float, c: float) -> bool:
+        """Validate OHLC data is sane. Returns True if valid."""
+        if c is None or c <= 0:
+            logger.warning("Price validation FAILED: %s %s close=%s (zero/negative)", symbol, date, c)
+            return False
+        if c < 0.01 or c > 500:
+            logger.warning("Price validation FAILED: %s %s close=%s (out of range 0.01-500)", symbol, date, c)
+            return False
+        if h is not None and l is not None and h < l:
+            logger.warning("Price validation FAILED: %s %s high=%s < low=%s", symbol, date, h, l)
+            return False
+        if h is not None and c > h * 1.2:
+            logger.warning("Price validation SUSPICIOUS: %s %s close=%s far above high=%s", symbol, date, c, h)
+        if l is not None and c < l * 0.8:
+            logger.warning("Price validation SUSPICIOUS: %s %s close=%s far below low=%s", symbol, date, c, l)
+        return True
 
     @property
     def config(self) -> dict:
