@@ -223,7 +223,7 @@ class StrategyEngine:
             status = ", ".join(status_parts)
             rows.append("<tr><td>" + str(etf.score_rank if etf.score_rank else "-") + "</td><td>" + etf.code + "</td><td>" + etf.name + "</td><td>" + ret20 + "</td><td>" + vol20 + "</td><td>" + score + "</td><td>" + status + "</td></tr>")
 
-        sections["momentum"] = "<h2>Risk-Adjusted Momentum Ranking</h2>\n<table border=1 cellpadding=6 cellspacing=0 style='border-collapse:collapse;width:100%'>\n<tr style='background:#0b5394;color:#fff'><th>Rank</th><th>Code</th><th>Name</th><th>20d Ret%</th><th>20d Vol%</th><th>Score</th><th>Status</th></tr>\n" + "".join(rows) + "\n</table>"
+        sections["momentum"] = "<p><b>Data Timestamp:</b> " + result.trade_date + " | Source: Yahoo Finance Real-time | Computed Locally</p>\n<h2>Risk-Adjusted Momentum Ranking</h2>\n<table border=1 cellpadding=6 cellspacing=0 style='border-collapse:collapse;width:100%'>\n<tr style='background:#0b5394;color:#fff'><th>Rank</th><th>Code</th><th>Name</th><th>20d Ret%</th><th>20d Vol%</th><th>Score</th><th>Status</th></tr>\n" + "".join(rows) + "\n</table>"
 
         # Section 3: Trend Filter - THIS IS THE CRITICAL ONE
         rows2 = []
@@ -236,7 +236,7 @@ class StrategyEngine:
             price = str(round(etf.close, 3))
             rows2.append("<tr><td>" + etf.code + "</td><td>" + etf.name + "</td><td><b>" + price + "</b></td><td>" + sma20 + "</td><td>" + etf.sma20_direction + "</td><td>" + slope + "</td><td>" + above + "</td><td>" + passed + "</td><td>" + sma5 + "</td><td>" + etf.sma5_direction + "</td></tr>")
 
-        sections["trend"] = "<h2>Trend Filter & SMA System</h2>\n<p>CRITICAL: All prices below are real market data from Yahoo Finance. DO NOT CHANGE any number. Use ONLY these values.</p>\n<table border=1 cellpadding=6 cellspacing=0 style='border-collapse:collapse;width:100%'>\n<tr style='background:#0b5394;color:#fff'><th>Code</th><th>Name</th><th>CLOSE PRICE</th><th>SMA20</th><th>SMA20 Dir</th><th>Slope</th><th>Price>SMA20</th><th>Filter</th><th>SMA5</th><th>SMA5 Dir</th></tr>\n" + "".join(rows2) + "\n</table>"
+        sections["trend"] = "<p><b>Data Timestamp:</b> " + result.trade_date + " | All prices/SMA computed from local DB | DO NOT MODIFY</p>\n<h2>Trend Filter & SMA System</h2>
 
         # Section 4: ATR
         rows3 = []
@@ -249,7 +249,7 @@ class StrategyEngine:
 
         avg_atr = str(round(result.avg_pool_atr_pct, 2))
         trigger = "DEFENSE MODE ACTIVE" if result.vol_trigger_active else "ATTACK MODE"
-        sections["volatility"] = "<h2>Volatility & Risk Exposure</h2>\n<p>Avg Pool ATR%: <b>" + avg_atr + "%</b> | Status: <b>" + trigger + "</b></p>\n<table border=1 cellpadding=6 cellspacing=0 style='border-collapse:collapse;width:100%'>\n<tr style='background:#0b5394;color:#fff'><th>Code</th><th>Name</th><th>ATR(14d)</th><th>ATR%</th><th>5d Ret%</th><th>10d Ret%</th></tr>\n" + "".join(rows3) + "\n</table>"
+        sections["volatility"] = "<p><b>Data Timestamp:</b> " + result.trade_date + " | ATR calculated locally via 14d True Range</p>\n<h2>Volatility & Risk Exposure</h2>
 
         # Section 6: Candidates
         if result.candidates:
