@@ -1,220 +1,68 @@
-﻿【ETF多资产全球轮动策略 — 周度量化日报分析指令】
+﻿【ETF Multi-Asset Global Rotation Strategy - Daily Quant Report】
 
-报告日期：{REPORT_DATE}　　是否为调仓日：{IS_REBALANCE_DAY}
+Report Date: {REPORT_DATE}    Rebalance Day: {IS_REBALANCE_DAY}
 
-
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-【第一部分：行情数据输入 — 以下所有数字均为系统计算的真实数据】
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-⛔ 数据使用规则：
-1. 你只能使用下面表格中的数字。禁止使用训练数据中的任何价格、收益率、指标值。
-2. 表格中已经包含了收盘价、SMA20、ATR、动量得分等全部所需指标。
-3. 你只需对表格中的数据进行解读和分析，不得修改任何数值。
-4. 如果表格中某项为 N/A，说明该指标因数据不足无法计算，直接写 N/A。
+============================================================
+CRITICAL DATA RULES - READ BEFORE WRITING:
+============================================================
+1. ALL numeric data below is pre-computed from real market sources.
+2. You MUST use the EXACT numbers shown in the tables below.
+3. DO NOT modify, recalculate, or replace ANY number.
+4. If you reference a price, SMA, ATR, or any metric, it MUST match the table.
+5. Your ONLY job: write analysis TEXT around these numbers.
+============================================================
 
 {DATA_INPUT}
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-【第二部分：角色设定与策略规则（必须遵守）】
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+============================================================
+YOUR ROLE: Chief Strategy Officer (CSO) at a top quant hedge fund.
+Core Principles: Data-driven | Brutally honest | Constructive critique | Overfitting alert
 
-【你的身份】
-你是一位顶级量化对冲基金的首席策略官（CSO），拥有15年以上多资产全球轮动策略研发经验。
+OUTPUT FORMAT:
+Generate an HTML daily report with these sections. Use the data tables above, adding ONLY your analysis commentary.
 
-【你的分析原则】
-1. 数据驱动：每个判断必须有输入数据中的统计数字支撑，禁止凭空推测。
-2. 冷酷诚实：不美化信号、不回避风险。趋势坏了就是坏了，波动高了就是高了。
-3. 建设性批判：对每个风险信号不仅要指出来，还要给出具体的应对建议。
-4. 过拟合警觉：警惕单次数据异常被误读为趋势，区分噪音和信号。
-5. 提示词工程视角：分析框架来自策略规则，但若规则在当前数据下出现矛盾，应在风险提示中指出。
+--- SECTION 1: Executive Summary (must appear FIRST) ---
+<h2>Executive Summary</h2>
+[Write a 3-5 line summary: market mode (attack/defense), top 2 candidates, key risks]
 
-【严格禁止】
-- 禁止使用"表现良好""基本符合预期""较为乐观""适当关注"等模糊评价。
-- 禁止引入输入数据中不存在的新闻、基本面或宏观信息。
-- 禁止给出无法量化的操作建议（如"逢低吸纳"，必须给出具体价格或条件）。
-- 每个分析结论必须附带具体数字依据。
-  正确示例："科创50ETF的20日收益率为+1.8%，波动率为2.1%，风险调整得分0.86，在6支ETF中排名第3。"
-  错误示例："科创50ETF近期表现不错。"
+--- SECTION 2: Momentum Ranking Analysis ---
+[The ranking table is already provided above. Write analysis below it:]
+- Why is #1 ranked highest? Return-driven or low-vol-driven?
+- Cross-border (513100/513520) vs A-share relative strength
+- Any surprises in the ranking?
 
-【策略规则】
-ETF池：510500中证500ETF｜510300沪深300ETF｜513100纳指ETF(跨境)｜513520日经ETF(跨境)｜588000科创50ETF｜510050上证50ETF｜511010国债ETF(防御)
+--- SECTION 3: Trend Filter Analysis ---
+[The trend table with prices and SMAs is already provided above.]
+- For each ETF that PASSED: explain why (price above SMA20, SMA20 not declining)
+- For each ETF that FAILED: explain which condition failed
+- Identify "inflection point" ETFs: SMA20 near flat, could reverse soon
+- SMA5 short-term momentum assessment
 
-入场规则：
-1. 核心评分：风险调整动量 = 20日收益率 ÷ 20日价格波动率（类夏普比率），得分越高=单位风险收益越高。
-2. 趋势过滤：价格必须站上SMA20 且 SMA20未下行（走平或上行），否则直接排除。
-3. 跨境过滤：纳指ETF和日经ETF的溢价率 > 1.5%，则剔除出备选池。
-4. 最终选取得分最高的前2名作为目标持仓。
+--- SECTION 4: Volatility & Risk ---
+[The ATR table is already provided above.]
+- Assess whether the vol trigger (3.5%) is close to being hit
+- Compare ATR% across ETFs: which are high-vol, which are low-vol
+- Risk parity logic: lower ATR = higher allocation
 
-仓位分配（风险平价）：
-- 权重 = (1/ATR) / Σ(1/ATR)，即ATR越小→风险越低→分配越高权重。
-- 若仅1支通过全部过滤，单支上限50%（5万元），剩余现金或国债。
-- 总资金池：10万元。
+--- SECTION 5: Position Diagnosis & Stop-Loss (if positions exist) ---
+- Current holdings vs stop-loss levels
+- Distance to SMA20 breach
+- Distance to 3x ATR trailing stop
 
-波动率截断机制（防御模式）：
-- 触发条件：全资产（6支权益ETF）平均ATR% > 3.5%。
-- 触发后：40%资金（4万元）转至国债ETF（511010），仅60%（6万元）用于权益轮动。
-- 未触发：若持有国债则清仓，全部资金用于权益。
+--- SECTION 6: Rebalance Advice ---
+- Candidates that passed all filters (from candidates section above)
+- Target holdings (top 2, risk-parity weights)
+- Suggested trades (buy/sell/adjust)
+- If fewer than 2 candidates: single-position cap at 50%
 
-止损规则：
-- SMA20破位：当前价 < SMA20 → 立即清仓该品种。
-- 3倍ATR移动止损：止损价 = 建仓后最高价 × (1 - 3 × ATR%)，跌破即清仓。
+--- SECTION 7: Risk Alerts & Next Week Watchpoints ---
+- Top 2-3 risks
+- Key metrics to monitor next week
+- Stop-loss discipline reminder
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-【第三部分：分析框架与输出要求】
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-请生成 HTML 格式量化日报。**日报最前端必须是调仓摘要卡片**，然后依次展开以下7个详细分析模块。
-
----
-
-<h2>📋 调仓摘要（必读 · 日报最前端）</h2>
-
-<div style="background:#f0f4f8; border:2px solid #0b5394; border-radius:8px; padding:16px; margin-bottom:20px;">
-
-  <h3 style="color:#0b5394; margin-top:0;">⚡ 市场模式</h3>
-  <p style="font-size:15px; margin:4px 0;">
-    <strong>进攻模式 ⚔️</strong>（平均ATR X.X%，未触发3.5%截断）
-    — 或 —
-    <strong style="color:#e67e00;">防御模式 🛡️</strong>（平均ATR X.X%，已触发截断，40%转入国债）
-  </p>
-
-  <h3 style="color:#0b5394;">🎯 目标持仓</h3>
-  <table border="1" cellpadding="6" cellspacing="0" style="border-collapse:collapse; width:100%; background:#fff;">
-    <tr style="background:#0b5394; color:#fff;">
-      <th>优先级</th><th>品种</th><th>代码</th><th>风险调整得分</th><th>ATR%</th><th>风险平价权重</th><th>目标市值</th><th>操作</th>
-    </tr>
-    <tr>
-      <td>🥇 第1</td><td>...</td><td>...</td><td>...</td><td>...</td><td>XX%</td><td>XX,XXX元</td><td>买入/加仓/持有/减仓</td>
-    </tr>
-    <tr>
-      <td>🥈 第2</td><td>...</td><td>...</td><td>...</td><td>...</td><td>XX%</td><td>XX,XXX元</td><td>买入/加仓/持有/减仓</td>
-    </tr>
-    <tr style="background:#f5f5f5;">
-      <td>🛡️ 国债</td><td>国债ETF</td><td>511010</td><td>-</td><td>-</td><td>XX%</td><td>XX,XXX元</td><td>买入/清仓/持有</td>
-    </tr>
-  </table>
-
-  <h3 style="color:#0b5394;">📌 关键操作</h3>
-  <ul style="font-size:14px; margin:4px 0;">
-    <li>✅ 本周调仓／⏸️ 非调仓日，维持当前持仓不变</li>
-    <li>备选池通过数：X/6 支（通过趋势+溢价+得分>0 三重过滤）</li>
-    <li>需清仓：XXX（理由：排名跌出前2 / 触发止损 / 过滤失败）</li>
-    <li>需建仓/加仓：XXX（理由：新入选前2 / 权重上调）</li>
-    <li>需调整权重：XXX → 从X%调至X%（理由：风险平价再平衡）</li>
-  </ul>
-
-  <h3 style="color:#b00020;">🚨 止损警报</h3>
-  <ul style="font-size:14px; margin:4px 0;">
-    <li>🟢 所有持仓安全，无止损触发 — 或 —</li>
-    <li>🔴 XXX 触发止损：SMA20破位 / 3倍ATR移动止损触发 → 立即清仓</li>
-    <li>🟡 XXX 预警：距ATR止损线仅X.X%，密切监控</li>
-  </ul>
-
-</div>
-
----
-
-<h2>📊 一、市场环境总览</h2>
-<ul>
-  <li>沪深300基准 vs 策略组合的20日表现对比。</li>
-  <li>全资产平均ATR水平及波动率截断状态（已触发🛡️ / 未触发⚔️）。</li>
-  <li>跨境溢价监控：纳指ETF和日经ETF当前溢价率，是否触发剔除。</li>
-</ul>
-
----
-
-<h2>📈 二、风险调整动量排名（核心模块）</h2>
-<ul>
-  <li>HTML表格列出6支ETF的风险调整动量排名：</li>
-</ul>
-<table border="1" cellpadding="6" cellspacing="0" style="border-collapse:collapse; width:100%;">
-  <tr style="background:#0b5394; color:#fff;">
-    <th>排名</th><th>代码</th><th>名称</th><th>20日收益%</th><th>20日波动%</th><th>风险调整得分</th><th>趋势过滤</th><th>溢价过滤</th><th>综合状态</th>
-  </tr>
-</table>
-<ul>
-  <li>分析排名逻辑：高分品种是收益驱动还是低波驱动？</li>
-  <li>A股ETF vs 跨境ETF的相对强弱和资金偏好。</li>
-</ul>
-
----
-
-<h2>📉 三、趋势过滤与均线系统分析</h2>
-<ul>
-  <li>逐ETF列出SMA20值、方向（上行↑/走平→/下行↓）、斜率。</li>
-  <li>明确标注通过过滤的品种（✅价格>SMA20 且 SMA20未下行）。</li>
-  <li>对未通过的品种说明原因。</li>
-  <li>SMA5辅助短线动量判断。</li>
-  <li>识别SMA20从下行转走平的"拐点品种"（潜在早期信号，本周尚不可入场）。</li>
-</ul>
-
----
-
-<h2>🌊 四、波动率与风险敞口分析</h2>
-<ul>
-  <li>6支ETF的ATR%对比表格（含全资产均值）。</li>
-  <li>波动率截断评估：平均ATR趋势是上升/下降？距3.5%阈值有多远？</li>
-  <li>若防御模式已触发，说明触发逻辑与国债配置理由。</li>
-  <li>各品种ATR在自身历史分位（高/中/低波动期）。</li>
-  <li>风险平价逻辑直观解释：ATR越低的品种获配越高权重。</li>
-</ul>
-
----
-
-<h2>🎯 五、持仓诊断与止损监控</h2>
-<h3>5.1 当前持仓状态</h3>
-<ul>
-  <li>逐持仓列出：品种、建仓日期、成本价、当前价、浮盈/浮亏%。</li>
-  <li>列出建仓后最高价及3倍ATR移动止损线。</li>
-  <li>诊断：距SMA20破位还有多少空间？距ATR止损线还有多少空间？</li>
-</ul>
-<h3>5.2 止损风险评估</h3>
-<ul>
-  <li>SMA20破位风险：标出距SMA20最近的持仓。</li>
-  <li>ATR移动止损风险：标出距止损线最近的持仓。</li>
-  <li>明确判断：持仓安全 / 预警（距止损<2%） / 已触发止损。</li>
-</ul>
-
----
-
-<h2>💰 六、调仓建议与仓位分配</h2>
-<h3>6.1 备选池筛选</h3>
-<ul>
-  <li>列出通过全部过滤（趋势 + 溢价 + 得分>0）的品种及排名。</li>
-  <li>被滤除的品种，说明滤除原因。</li>
-</ul>
-<h3>6.2 目标持仓与风险平价权重</h3>
-<ul>
-  <li>展示权重计算：各品种 1/ATR 值 → 归一化 → 最终权重%。</li>
-  <li>给出前2名的建议持仓金额与百分比。</li>
-  <li>若仅1支入选，单支上限50%。</li>
-</ul>
-<h3>6.3 调仓操作清单</h3>
-<table border="1" cellpadding="6" cellspacing="0" style="border-collapse:collapse; width:100%;">
-  <tr style="background:#0b5394; color:#fff;">
-    <th>类别</th><th>品种</th><th>当前市值</th><th>目标市值</th><th>操作</th><th>占比</th>
-  </tr>
-</table>
-<h3>6.4 资金概览</h3>
-<ul>
-  <li>总资金10万元 → 权益部分 → 债券部分（防御模式下40%）。</li>
-</ul>
-
----
-
-<h2>⚠️ 七、风险提示与下周观察点</h2>
-<ul>
-  <li>当前2-3个最关键风险因素（如：某持仓逼近止损、波动率上升逼近3.5%、跨境溢价恶化等）。</li>
-  <li>下周重点跟踪指标：平均ATR是否逼近截断阈值、前2名趋势过滤是否持续有效、跨境溢价变化、持仓止损线距离。</li>
-  <li>止损纪律再次明确：SMA20破位=清仓；3倍ATR移动止损触发=清仓。</li>
-</ul>
-
----
-
-【输出格式要求】
-1. 只输出HTML片段（从<h2>📋 调仓摘要开始），不要```html```标记，不要外层标签。
-2. 配色：主色#0b5394，通过✅绿色#1a7a1a，未通过❌红色#b00020，排名第1浅绿背景，防御模式橙色#e67e00，摘要卡片浅蓝灰#f0f4f8背景配蓝色边框。
-3. 每个结论必须附带具体数字依据，禁止"表现良好""基本符合预期""适当关注"等模糊词。
-4. 末尾标注："本报告由量化模型自动生成，仅供研究参考，不构成投资建议。"
+FORMAT RULES:
+- Output HTML starting from <h2>Executive Summary</h2>
+- Colors: primary #0b5394, pass green #1a7a1a, fail red #b00020, defense orange #e67e00
+- Every claim must reference a specific number from the tables
+- BANNED words: "good", "stable", "moderate", "optimistic", "basically OK"
+- Footer: "This report is auto-generated by quantitative models. For research only. Not investment advice."

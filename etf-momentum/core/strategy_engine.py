@@ -206,70 +206,61 @@ class StrategyEngine:
         return ind
 
 
-    def build_formatted_data(self, result, previous_positions=None):
-        """Build pre-formatted data tables for the AI prompt - no JSON parsing needed."""
-        lines = []
+﻿    def build_formatted_data(self, result, previous_positions=None):
+        """Build COMPLETE pre-formatted HTML data sections. Model only adds commentary."""
+        sections = {}
 
-        # === Price & Momentum Table ===
-        lines.append("<h3>实盘数据 — 价格与动量指标（仅使用以下数值）</h3>")
-        lines.append('<table border="1" cellpadding="4" cellspacing="0" style="border-collapse:collapse; width:100%;">')
-        lines.append('<tr style="background:#0b5394;color:#fff;"><th>代码</th><th>名称</th><th>收盘价</th><th>20日收益%</th><th>20日波动%</th><th>风险调整得分</th><th>排名</th></tr>')
+        # Section 2: Momentum Ranking
+        rows = []
+        for etf in sorted(result.etfs, key=lambda e: e.risk_adjusted_score or -999, reverse=True):
+            score = str(round(etf.risk_adjusted_score, 2)) if etf.risk_adjusted_score else "N/A"
+            ret20 = ("+" if etf.return_20d_pct and etf.return_20d_pct > 0 else "") + str(etf.return_20d_pct) + "%" if etf.return_20d_pct else "N/A"
+            vol20 = str(etf.volatility_20d_pct) + "%" if etf.volatility_20d_pct else "N/A"
+            status_parts = []
+            if etf.filter_pass: status_parts.append("Trend OK")
+            else: status_parts.append("Trend FAIL")
+            if etf.score_eligible: status_parts.append("#" + str(etf.score_rank))
+            status = ", ".join(status_parts)
+            rows.append("<tr><td>" + str(etf.score_rank if etf.score_rank else "-") + "</td><td>" + etf.code + "</td><td>" + etf.name + "</td><td>" + ret20 + "</td><td>" + vol20 + "</td><td>" + score + "</td><td>" + status + "</td></tr>")
+
+        sections["momentum"] = "<h2>Risk-Adjusted Momentum Ranking</h2>\n<table border=1 cellpadding=6 cellspacing=0 style='border-collapse:collapse;width:100%'>\n<tr style='background:#0b5394;color:#fff'><th>Rank</th><th>Code</th><th>Name</th><th>20d Ret%</th><th>20d Vol%</th><th>Score</th><th>Status</th></tr>\n" + "".join(rows) + "\n</table>"
+
+        # Section 3: Trend Filter - THIS IS THE CRITICAL ONE
+        rows2 = []
         for etf in result.etfs:
-            lines.append(f'<tr><td>{etf.code}</td><td>{etf.name}</td>'
-                         f'<td><b>{etf.close:.3f}</b></td>'
-                         f'<td>{etf.return_20d_pct if etf.return_20d_pct else "N/A"}</td>'
-                         f'<td>{etf.volatility_20d_pct if etf.volatility_20d_pct else "N/A"}</td>'
-                         f'<td>{etf.risk_adjusted_score if etf.risk_adjusted_score else "N/A"}</td>'
-                         f'<td>{etf.score_rank if etf.score_rank else "-"}</td></tr>')
-        lines.append('</table>')
+            sma20 = str(round(etf.sma20, 4)) if etf.sma20 else "N/A"
+            sma5 = str(round(etf.sma5, 4)) if etf.sma5 else "N/A"
+            slope = str(etf.sma20_slope_pct) + "%" if etf.sma20_slope_pct else "N/A"
+            above = "YES" if etf.close_above_sma20 else "NO"
+            passed = "PASS" if etf.filter_pass else "FAIL"
+            price = str(round(etf.close, 3))
+            rows2.append("<tr><td>" + etf.code + "</td><td>" + etf.name + "</td><td><b>" + price + "</b></td><td>" + sma20 + "</td><td>" + etf.sma20_direction + "</td><td>" + slope + "</td><td>" + above + "</td><td>" + passed + "</td><td>" + sma5 + "</td><td>" + etf.sma5_direction + "</td></tr>")
 
-        # === Trend Filter Table ===
-        lines.append("<h3>趋势过滤数据</h3>")
-        lines.append('<table border="1" cellpadding="4" cellspacing="0" style="border-collapse:collapse; width:100%;">')
-        lines.append('<tr style="background:#0b5394;color:#fff;"><th>代码</th><th>SMA20</th><th>SMA20方向</th><th>SMA20斜率%</th><th>价格>SMA20</th><th>过滤通过</th><th>SMA5</th><th>SMA5方向</th></tr>')
+        sections["trend"] = "<h2>Trend Filter & SMA System</h2>\n<p>CRITICAL: All prices below are real market data from Yahoo Finance. DO NOT CHANGE any number. Use ONLY these values.</p>\n<table border=1 cellpadding=6 cellspacing=0 style='border-collapse:collapse;width:100%'>\n<tr style='background:#0b5394;color:#fff'><th>Code</th><th>Name</th><th>CLOSE PRICE</th><th>SMA20</th><th>SMA20 Dir</th><th>Slope</th><th>Price>SMA20</th><th>Filter</th><th>SMA5</th><th>SMA5 Dir</th></tr>\n" + "".join(rows2) + "\n</table>"
+
+        # Section 4: ATR
+        rows3 = []
         for etf in result.etfs:
-            lines.append(f'<tr><td>{etf.code}</td>'
-                         f'<td>{etf.sma20 if etf.sma20 else "N/A"}</td>'
-                         f'<td>{etf.sma20_direction}</td>'
-                         f'<td>{etf.sma20_slope_pct if etf.sma20_slope_pct else "N/A"}</td>'
-                         f'<td>{"是" if etf.close_above_sma20 else "否"}</td>'
-                         f'<td>{"通过" if etf.filter_pass else "未通过"}</td>'
-                         f'<td>{etf.sma5 if etf.sma5 else "N/A"}</td>'
-                         f'<td>{etf.sma5_direction}</td></tr>')
-        lines.append('</table>')
+            atr14 = str(round(etf.atr_14d, 4)) if etf.atr_14d else "N/A"
+            atrpct = str(etf.atr_pct) + "%" if etf.atr_pct else "N/A"
+            ret5 = str(etf.return_5d_pct) + "%" if etf.return_5d_pct else "N/A"
+            ret10 = str(etf.return_10d_pct) + "%" if etf.return_10d_pct else "N/A"
+            rows3.append("<tr><td>" + etf.code + "</td><td>" + etf.name + "</td><td>" + atr14 + "</td><td>" + atrpct + "</td><td>" + ret5 + "</td><td>" + ret10 + "</td></tr>")
 
-        # === ATR Table ===
-        lines.append("<h3>波动率(ATR)数据</h3>")
-        lines.append('<table border="1" cellpadding="4" cellspacing="0" style="border-collapse:collapse; width:100%;">')
-        lines.append('<tr style="background:#0b5394;color:#fff;"><th>代码</th><th>ATR(14日)</th><th>ATR%</th><th>5日收益%</th><th>10日收益%</th><th>量比</th></tr>')
-        for etf in result.etfs:
-            lines.append(f'<tr><td>{etf.code}</td>'
-                         f'<td>{etf.atr_14d if etf.atr_14d else "N/A"}</td>'
-                         f'<td>{etf.atr_pct if etf.atr_pct else "N/A"}</td>'
-                         f'<td>{etf.return_5d_pct if etf.return_5d_pct else "N/A"}</td>'
-                         f'<td>{etf.return_10d_pct if etf.return_10d_pct else "N/A"}</td>'
-                         f'<td>{etf.volume_vs_20d_avg_ratio if etf.volume_vs_20d_avg_ratio else "N/A"}</td></tr>')
-        lines.append('</table>')
+        avg_atr = str(round(result.avg_pool_atr_pct, 2))
+        trigger = "DEFENSE MODE ACTIVE" if result.vol_trigger_active else "ATTACK MODE"
+        sections["volatility"] = "<h2>Volatility & Risk Exposure</h2>\n<p>Avg Pool ATR%: <b>" + avg_atr + "%</b> | Status: <b>" + trigger + "</b></p>\n<table border=1 cellpadding=6 cellspacing=0 style='border-collapse:collapse;width:100%'>\n<tr style='background:#0b5394;color:#fff'><th>Code</th><th>Name</th><th>ATR(14d)</th><th>ATR%</th><th>5d Ret%</th><th>10d Ret%</th></tr>\n" + "".join(rows3) + "\n</table>"
 
-        # === Market Environment ===
-        lines.append("<h3>市场环境</h3>")
-        lines.append(f"<p>全资产平均ATR%: <b>{result.avg_pool_atr_pct:.2f}%</b> | "
-                     f"波动率截断: <b>{'已触发(防御模式)' if result.vol_trigger_active else '未触发(进攻模式)'}</b> | "
-                     f"总资金: 100,000元</p>")
-        if result.vol_trigger_detail:
-            lines.append(f"<p>{result.vol_trigger_detail}</p>")
-
-        # === Candidates ===
+        # Section 6: Candidates
         if result.candidates:
-            lines.append("<h3>备选池（已通过全部过滤）</h3>")
-            lines.append("<ul>")
+            cand_lines = []
             for c in result.candidates:
-                lines.append(f"<li>{c[0]} {c[1]} — 得分: {c[2]}, ATR%: {c[3]}</li>")
-            lines.append("</ul>")
+                cand_lines.append("<li>" + str(c[0]) + " " + str(c[1]) + " Score: " + str(c[2]) + " ATR%: " + str(c[3]) + "</li>")
+            sections["candidates"] = "<h3>Candidates (all filters passed)</h3><ul>" + "".join(cand_lines) + "</ul>"
         else:
-            lines.append("<h3>备选池</h3><p>无品种通过全部过滤条件</p>")
+            sections["candidates"] = "<h3>Candidates</h3><p>No symbols passed all filters</p>"
 
-        return "\n".join(lines)
+        return sections
 
     def build_data_input(self, result, previous_positions=None, cross_border_premiums=None):
         from datetime import datetime

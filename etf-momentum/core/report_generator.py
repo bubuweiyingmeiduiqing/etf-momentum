@@ -52,7 +52,7 @@ class ReportGenerator:
         user_prompt = user_prompt.replace("{REPORT_DATE}", trade_date)
         user_prompt = user_prompt.replace("{IS_REBALANCE_DAY}",
             "\u662f\uff08\u5468\u4e00\u8c03\u4ed3\u65e5\uff09" if is_monday else "\u5426")
-        user_prompt = user_prompt.replace("{DATA_INPUT}", formatted_data)
+        user_prompt = user_prompt.replace("{DATA_INPUT}", "\n".join(formatted_data.values()))
 
         # Inject actual closing prices as anti-hallucination anchors
         for etf in result.etfs:
