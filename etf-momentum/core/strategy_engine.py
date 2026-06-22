@@ -207,38 +207,44 @@ class StrategyEngine:
 
 
     def build_formatted_data(self, result, previous_positions=None):
-        """Build COMPLETE pre-formatted HTML data sections. Model only adds commentary."""
+        """Build pre-computed HTML data tables. Model only adds analysis."""
         sections = {}
 
-        # Section 2: Momentum Ranking
+        # Momentum Ranking
         rows = []
         for etf in sorted(result.etfs, key=lambda e: e.risk_adjusted_score or -999, reverse=True):
             score = str(round(etf.risk_adjusted_score, 2)) if etf.risk_adjusted_score else "N/A"
-            ret20 = ("+" if etf.return_20d_pct and etf.return_20d_pct > 0 else "") + str(etf.return_20d_pct) + "%" if etf.return_20d_pct else "N/A"
+            ret20 = str(etf.return_20d_pct) + "%" if etf.return_20d_pct else "N/A"
             vol20 = str(etf.volatility_20d_pct) + "%" if etf.volatility_20d_pct else "N/A"
-            status_parts = []
-            if etf.filter_pass: status_parts.append("Trend OK")
-            else: status_parts.append("Trend FAIL")
-            if etf.score_eligible: status_parts.append("#" + str(etf.score_rank))
-            status = ", ".join(status_parts)
-            rows.append("<tr><td>" + str(etf.score_rank if etf.score_rank else "-") + "</td><td>" + etf.code + "</td><td>" + etf.name + "</td><td>" + ret20 + "</td><td>" + vol20 + "</td><td>" + score + "</td><td>" + status + "</td></tr>")
+            status = []
+            if etf.filter_pass: status.append("Trend OK")
+            else: status.append("Trend FAIL")
+            if etf.score_eligible: status.append("#" + str(etf.score_rank))
+            st = ", ".join(status)
+            rows.append("<tr><td>" + str(etf.score_rank or "-") + "</td><td>" + etf.code + "</td><td>" + etf.name + "</td><td>" + ret20 + "</td><td>" + vol20 + "</td><td>" + score + "</td><td>" + st + "</td></tr>")
+        ts = "<p><b>Timestamp:</b> " + result.trade_date + " | Computed Locally</p>"
+        sections["momentum"] = (ts + "<h2>Momentum Ranking</h2>" + NL
+            + "<table border=1 cellpadding=6 cellspacing=0 style='border-collapse:collapse;width:100%'>" + NL
+            + "<tr style='background:#0b5394;color:#fff'><th>Rank</th><th>Code</th><th>Name</th><th>20dRet%</th><th>20dVol%</th><th>Score</th><th>Status</th></tr>" + NL
+            + "".join(rows) + NL + "</table>")
 
-        sections["momentum"] = "<p><b>Data Timestamp:</b> " + result.trade_date + " | Source: Yahoo Finance Real-time | Computed Locally</p>\n<h2>Risk-Adjusted Momentum Ranking</h2>\n<table border=1 cellpadding=6 cellspacing=0 style='border-collapse:collapse;width:100%'>\n<tr style='background:#0b5394;color:#fff'><th>Rank</th><th>Code</th><th>Name</th><th>20d Ret%</th><th>20d Vol%</th><th>Score</th><th>Status</th></tr>\n" + "".join(rows) + "\n</table>"
-
-        # Section 3: Trend Filter - THIS IS THE CRITICAL ONE
+        # Trend Filter
         rows2 = []
         for etf in result.etfs:
+            price = str(round(etf.close, 3))
             sma20 = str(round(etf.sma20, 4)) if etf.sma20 else "N/A"
             sma5 = str(round(etf.sma5, 4)) if etf.sma5 else "N/A"
             slope = str(etf.sma20_slope_pct) + "%" if etf.sma20_slope_pct else "N/A"
             above = "YES" if etf.close_above_sma20 else "NO"
             passed = "PASS" if etf.filter_pass else "FAIL"
-            price = str(round(etf.close, 3))
             rows2.append("<tr><td>" + etf.code + "</td><td>" + etf.name + "</td><td><b>" + price + "</b></td><td>" + sma20 + "</td><td>" + etf.sma20_direction + "</td><td>" + slope + "</td><td>" + above + "</td><td>" + passed + "</td><td>" + sma5 + "</td><td>" + etf.sma5_direction + "</td></tr>")
+        ts2 = "<p><b>Timestamp:</b> " + result.trade_date + " | DO NOT MODIFY</p>"
+        sections["trend"] = (ts2 + "<h2>Trend Filter & SMA</h2>" + NL
+            + "<table border=1 cellpadding=6 cellspacing=0 style='border-collapse:collapse;width:100%'>" + NL
+            + "<tr style='background:#0b5394;color:#fff'><th>Code</th><th>Name</th><th>CLOSE</th><th>SMA20</th><th>Dir</th><th>Slope</th><th>&gt;SMA20</th><th>Filter</th><th>SMA5</th><th>SMA5Dir</th></tr>" + NL
+            + "".join(rows2) + NL + "</table>")
 
-        sections["trend"] = "<p><b>Data Timestamp:</b> " + result.trade_date + " | All prices/SMA computed from local DB | DO NOT MODIFY</p>\n<h2>Trend Filter & SMA System</h2>
-
-        # Section 4: ATR
+        # ATR / Volatility
         rows3 = []
         for etf in result.etfs:
             atr14 = str(round(etf.atr_14d, 4)) if etf.atr_14d else "N/A"
@@ -246,22 +252,25 @@ class StrategyEngine:
             ret5 = str(etf.return_5d_pct) + "%" if etf.return_5d_pct else "N/A"
             ret10 = str(etf.return_10d_pct) + "%" if etf.return_10d_pct else "N/A"
             rows3.append("<tr><td>" + etf.code + "</td><td>" + etf.name + "</td><td>" + atr14 + "</td><td>" + atrpct + "</td><td>" + ret5 + "</td><td>" + ret10 + "</td></tr>")
-
         avg_atr = str(round(result.avg_pool_atr_pct, 2))
-        trigger = "DEFENSE MODE ACTIVE" if result.vol_trigger_active else "ATTACK MODE"
-        sections["volatility"] = "<p><b>Data Timestamp:</b> " + result.trade_date + " | ATR calculated locally via 14d True Range</p>\n<h2>Volatility & Risk Exposure</h2>
+        trigger = "DEFENSE" if result.vol_trigger_active else "ATTACK"
+        ts3 = "<p><b>Timestamp:</b> " + result.trade_date + " | ATR computed locally</p>"
+        sections["volatility"] = (ts3 + "<h2>Volatility & Risk</h2>" + NL
+            + "<p>Avg Pool ATR%: <b>" + avg_atr + "%</b> | Mode: <b>" + trigger + "</b></p>" + NL
+            + "<table border=1 cellpadding=6 cellspacing=0 style='border-collapse:collapse;width:100%'>" + NL
+            + "<tr style='background:#0b5394;color:#fff'><th>Code</th><th>Name</th><th>ATR14</th><th>ATR%</th><th>5dRet%</th><th>10dRet%</th></tr>" + NL
+            + "".join(rows3) + NL + "</table>")
 
-        # Section 6: Candidates
+        # Candidates
         if result.candidates:
-            cand_lines = []
+            cl = []
             for c in result.candidates:
-                cand_lines.append("<li>" + str(c[0]) + " " + str(c[1]) + " Score: " + str(c[2]) + " ATR%: " + str(c[3]) + "</li>")
-            sections["candidates"] = "<h3>Candidates (all filters passed)</h3><ul>" + "".join(cand_lines) + "</ul>"
+                cl.append("<li>" + str(c[0]) + " " + str(c[1]) + " Score:" + str(c[2]) + " ATR%:" + str(c[3]) + "</li>")
+            sections["candidates"] = "<h3>Candidates</h3><ul>" + "".join(cl) + "</ul>"
         else:
-            sections["candidates"] = "<h3>Candidates</h3><p>No symbols passed all filters</p>"
+            sections["candidates"] = "<h3>Candidates</h3><p>None passed all filters</p>"
 
         return sections
-
     def build_data_input(self, result, previous_positions=None, cross_border_premiums=None):
         from datetime import datetime
         data = {
