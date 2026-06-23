@@ -104,7 +104,7 @@ class StrategyEngine:
         if all_atr_pcts:
             import numpy as np
             result.avg_pool_atr_pct = float(np.mean(all_atr_pcts))
-            result.vol_trigger_active = result.avg_pool_atr_pct > VOL_TRIGGER_ATR
+            result.vol_trigger_active = result.avg_pool_atr_pct > (VOL_TRIGGER_ATR * 100)
             result.vol_trigger_detail = (
                 f"全资产平均ATR {result.avg_pool_atr_pct*100:.2f}%，"
                 f"{'已触发' if result.vol_trigger_active else '未触发'}3.5%截断阈值"
