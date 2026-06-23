@@ -1,67 +1,71 @@
-【ETF Multi-Asset Global Rotation Strategy - Daily Quant Report】
+【ETF Multi-Asset Global Rotation - Quant Daily Report】
 
-Report Date: {REPORT_DATE}    Rebalance Day: {IS_REBALANCE_DAY}
-
-============================================================
-DATA RULES:
-1. ALL tables below are pre-computed from real market data.
-2. Use EXACT numbers from tables. DO NOT modify any value.
-3. Your job: write analysis TEXT around these numbers.
-4. If any value is N/A, state data insufficient, never guess.
-============================================================
-
-{DATA_INPUT}
+Report Date: {REPORT_DATE}    Rebalance: {IS_REBALANCE_DAY}
 
 ============================================================
-YOUR ROLE: CSO at a top quant hedge fund.
-Principles: Data-driven | Brutally honest | Critical | Overfitting-aware
+CRITICAL OUTPUT RULES - READ FIRST:
+============================================================
+The sections below labeled [PRECOMPUTED TABLE] are already-generated
+HTML. You MUST copy them VERBATIM into your output. Do NOT modify,
+regenerate, or replace any table, number, or emoji in these sections.
+Your analysis text goes AFTER each table, not instead of it.
+============================================================
 
-OUTPUT FORMAT (all sections in Chinese):
+--- [PRECOMPUTED TABLE] Price Header ---
+Copy this EXACTLY:
+{PRECOMPUTED_HEADER}
 
---- SECTION 0: Action Summary (FIRST in output) ---
-<h2>📋 操作摘要</h2>
-Based on the sentiment light above, write:
-- Action Signal: [持仓不变] or [触发调仓] or [减仓预警]
-- Key Observations: 2-3 most critical items (e.g., "科创50ETF距SMA20仅0.3%，面临破位风险")
+--- [PRECOMPUTED TABLE] Market Sentiment ---
+Copy this EXACTLY:
+{PRECOMPUTED_SENTIMENT}
 
---- SECTION 1: Momentum Ranking Analysis ---
-[Table provided above. Write analysis:]
-- Why is #1 ranked highest? Return-driven or low-vol-driven?
-- Cross-border vs A-share relative strength
-- Any borderline scores (1.0-2.0 marked in orange)?
+--- Your Analysis: Action Summary ---
+Write a <h2>📋 操作摘要</h2> with:
+- Action Signal: based on sentiment light above
+- 2-3 key observations with specific numbers
 
---- SECTION 2: Trend Filter Analysis ---
-[Table provided above.]
-- For PASS: confirm trend strength
-- For FAIL: explain which condition failed
-- Identify inflection ETFs: SMA20 near flat, slope <0.3% (orange bold)
-- Highlight prices within 1% of SMA20 (red bold = danger)
-- SMA5 short-term momentum vs SMA20 medium-term
+--- [PRECOMPUTED TABLE] Momentum Ranking ---
+Copy this EXACTLY:
+{PRECOMPUTED_MOMENTUM}
 
---- SECTION 3: Volatility & Risk ---
-[Table provided above.]
-- ATR% > 3.5% (red bold) = high risk ETFs
-- Avg ATR vs 3.5% threshold: how close to defense mode?
-- Risk parity logic: lower ATR = higher allocation weight
+--- Your Analysis: Momentum Commentary ---
+- Why #1 ranked highest? Return-driven or low-vol?
+- Cross-border vs A-share comparison
+- Orange bold scores (1.0-2.0) = borderline, what it means
 
---- SECTION 4: Position Diagnosis (if positions exist) ---
-- Current holdings vs stop-loss levels
-- Distance to SMA20 breach / ATR trailing stop
+--- [PRECOMPUTED TABLE] Trend Filter ---
+Copy this EXACTLY:
+{PRECOMPUTED_TREND}
 
---- SECTION 5: Rebalance Advice ---
-[Candidates table provided above.]
-- Top 2 candidates with risk-parity weights
-- If <2 candidates: single-position cap at 50%
-- Suggested trades
+--- Your Analysis: Trend Commentary ---
+- PASS/FAIL reasoning per ETF
+- Orange slope (<0.3%) = inflection point, watch closely
+- Red price (within 1% of SMA20) = danger zone
 
---- SECTION 6: Risk Alerts ---
-- Top 2-3 risks
+--- [PRECOMPUTED TABLE] Volatility ---
+Copy this EXACTLY:
+{PRECOMPUTED_VOLATILITY}
+
+--- Your Analysis: Volatility Commentary ---
+- Red bold ATR% (>3.5%) = high risk
+- Avg ATR distance to 3.5% threshold
+- Risk parity: lower ATR = higher weight
+
+--- [PRECOMPUTED TABLE] Candidates ---
+Copy this EXACTLY:
+{PRECOMPUTED_CANDIDATES}
+
+--- Your Analysis: Rebalance Advice ---
+- Top 2 candidates, risk-parity weights
+- Suggested trades (buy/sell/hold)
+- If <2 candidates: single-position cap 50%
+
+--- Your Analysis: Risk Alerts ---
+- Top 2-3 risks with specific numbers
 - Next week watchpoints
-- Stop-loss discipline
 
 OUTPUT RULES:
-- Start from <h2>📋 操作摘要</h2>
+- Start from the Price Header table
 - Colors: primary #0b5394, green #1a7a1a, red #b00020, orange #e67e00
-- Every claim must reference a specific number from the tables
-- BANNED: "表现良好", "基本符合", "较为乐观", "适当关注"
+- BANNED: "表现良好" "基本符合" "较为乐观" "适当关注"
 - Footer: "本报告由量化模型自动生成，仅供研究参考，不构成投资建议。"
