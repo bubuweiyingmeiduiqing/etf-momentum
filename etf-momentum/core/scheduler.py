@@ -107,6 +107,7 @@ class TaskScheduler:
 
     def _safe_generate_daily_report(self):
         try:
+            self._sync_quotes_to_daily()
             if self.report_generator:
                 self.report_generator.generate_daily_report()
         except Exception as e:
@@ -165,6 +166,29 @@ class TaskScheduler:
                     self.notifier.send_alert(a)
             except Exception as e:
                 logger.error("Process %s error: %s", quote.get("symbol"), e)
+
+
+    def _sync_quotes_to_daily(self):
+        """Copy latest quotes into daily_summary for report generation."""
+        if not self.db or not self.fetcher:
+            return
+        today = datetime.now().strftime("%Y-%m-%d")
+        for sym in self.fetcher.symbols:
+            try:
+                q = self.fetcher.db.get_latest_quote(sym)
+                if q and q.get("close"):
+                    self.fetcher.db.upsert_daily_summary(sym, {
+                        "date": today,
+                        "open": q.get("open"),
+                        "high": q.get("high"),
+                        "low": q.get("low"),
+                        "close": q.get("close"),
+                        "volume": q.get("volume"),
+                        "change_pct": q.get("change_pct"),
+                    })
+            except Exception as e:
+                logger.error("Sync quote to daily failed for %s: %s", sym, e)
+        logger.info("Synced quotes to daily_summary for %s", today)
 
     def _daily_report(self):
         if not self.fetcher.is_trade_day():
