@@ -146,6 +146,10 @@ class StrategyEngine:
         if not hist or len(hist) < 9:
             logger.warning("%s history <20 rows", code)
             return None
+        # DATE VALIDATION: last row must match requested trade_date
+        last_hist_date = hist[-1].get("date", "N/A")
+        if last_hist_date != trade_date:
+            logger.error("DATE MISMATCH: %s requested=%s latest_data=%s", code, trade_date, last_hist_date)
         closes = np.array([h["close"] for h in hist if h.get("close")], dtype=float)
         highs = np.array([h.get("high", h.get("close")) for h in hist], dtype=float)
         lows = np.array([h.get("low", h.get("close")) for h in hist], dtype=float)

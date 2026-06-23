@@ -38,6 +38,14 @@ class ReportGenerator:
             trade_date = self.calendar.last_trade_day()
         logger.info("=== Generate daily report: %s ===", trade_date)
 
+        # DATA FRESHNESS CHECK: verify daily_summary has data for this date
+        for sym in ["510500", "513100"]:
+            rows = self.db.get_daily_summary(sym, limit=1)
+            if rows:
+                latest_date = rows[-1].get("date", "N/A")
+                if latest_date != trade_date:
+                    logger.error("STALE DATA: %s latest=%s requested=%s - report may use wrong prices!", sym, latest_date, trade_date)
+
         result = self.engine.compute_all(trade_date)
         if not result.etfs:
             logger.warning("No valid ETF data, skip")

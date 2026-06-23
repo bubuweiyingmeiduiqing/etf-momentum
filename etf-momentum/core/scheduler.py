@@ -188,6 +188,15 @@ class TaskScheduler:
                     })
             except Exception as e:
                 logger.error("Sync quote to daily failed for %s: %s", sym, e)
+        # Verify sync by reading back
+        for sym in self.fetcher.symbols[:2]:
+            rows = self.db.get_daily_summary(sym, limit=1)
+            if rows:
+                latest = rows[-1].get("date", "N/A")
+                if latest == today:
+                    logger.info("Verified %s synced to daily_summary date=%s", sym, today)
+                else:
+                    logger.error("SYNC FAILED: %s daily_summary latest=%s expected=%s", sym, latest, today)
         logger.info("Synced quotes to daily_summary for %s", today)
 
     def _daily_report(self):
