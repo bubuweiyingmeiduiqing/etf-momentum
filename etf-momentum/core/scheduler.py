@@ -81,6 +81,12 @@ class TaskScheduler:
                                CronTrigger(hour=10, minute=30, day=1),
                                id="monthly_review", name="Monthly Review", replace_existing=True)
 
+        # Rebalance reminder: Monday 8:00 AM (before market open)
+        self.scheduler.add_job(self._safe_rebalance_reminder,
+                               CronTrigger(hour=8, minute=0, day_of_week="mon"),
+                               id="rebalance_reminder", name="Rebalance Reminder", replace_existing=True)
+
+
         # DB backup: daily 3:00 AM
         self.scheduler.add_job(self._safe_backup, CronTrigger(hour=3, minute=0),
                                id="db_backup", name="DB Backup", replace_existing=True)
@@ -120,7 +126,12 @@ class TaskScheduler:
     def _safe_generate_weekly_review(self):
         try:
             if self.report_generator:
-                self.report_generator.generate_review_report("weekly")
+                html = self.report_generator.generate_review_report("weekly")
+                if html and self.notifier:
+                    self.notifier.send_review_report("weekly", 
+                        self.report_generator._last_review_start or "?",
+                        self.report_generator._last_review_end or "?",
+                        html)
         except Exception as e:
             logger.error("Weekly review error: %s", e)
             try:
@@ -131,7 +142,12 @@ class TaskScheduler:
     def _safe_generate_monthly_review(self):
         try:
             if self.report_generator:
-                self.report_generator.generate_review_report("monthly")
+                html = self.report_generator.generate_review_report("monthly")
+                if html and self.notifier:
+                    self.notifier.send_review_report("monthly",
+                        self.report_generator._last_review_start or "?",
+                        self.report_generator._last_review_end or "?",
+                        html)
         except Exception as e:
             logger.error("Monthly review error: %s", e)
             try:
@@ -166,6 +182,22 @@ class TaskScheduler:
                     self.notifier.send_alert(a)
             except Exception as e:
                 logger.error("Process %s error: %s", quote.get("symbol"), e)
+
+
+    def _safe_rebalance_reminder(self):
+        """Monday morning: send rebalance reminder with current positions and candidates."""
+        try:
+            if not self.fetcher.is_trade_day():
+                logger.info("Not a trade day, skipping rebalance reminder")
+                return
+            if self.report_generator and self.notifier:
+                self.report_generator.send_rebalance_reminder()
+        except Exception as e:
+            logger.error("Rebalance reminder error: %s", e)
+            try:
+                self.notifier.send_error("RebalanceReminder", e, "Rebalance reminder failed")
+            except Exception:
+                pass
 
 
     def _sync_quotes_to_daily(self):

@@ -25,6 +25,8 @@ class ReportGenerator:
         self.engine = StrategyEngine(db)
         self.deepseek = DeepSeekClient(config)
         self._load_prompts()
+        self._last_review_start = None
+        self._last_review_end = None
 
     def _load_prompts(self):
         with open(os.path.join(PROMPTS_DIR, "daily_prompt.txt"), "r", encoding="utf-8") as f:
@@ -112,6 +114,8 @@ class ReportGenerator:
         start_date = self.calendar.last_trade_day(start_dt)
 
         logger.info("=== Generate %s review: %s ~ %s ===", review_type, start_date, end_date)
+        self._last_review_start = start_date
+        self._last_review_end = end_date
         sections = self._build_review_sections(start_date, end_date)
 
         user_prompt = self.review_template
@@ -164,6 +168,29 @@ class ReportGenerator:
     # ============================================================
     # REVIEW DATA COMPUTATION (rebuilt 2026-06-24)
     # ============================================================
+
+    def send_rebalance_reminder(self, trade_date: str = None):
+        """Send rebalance reminder email with current positions and candidates."""
+        if trade_date is None:
+            trade_date = self.calendar.last_trade_day()
+        logger.info("=== Rebalance reminder for %s ===", trade_date)
+
+        prev_positions = self._load_previous_positions()
+        result = self.engine.compute_all(trade_date)
+
+        if not result.etfs:
+            logger.warning("No ETF data for rebalance reminder")
+            return
+
+        holdings = prev_positions.get("holdings", [])
+        candidates = [[c[0], c[1], c[2], c[3]] for c in result.candidates]
+
+        if self.notifier:
+            try:
+                self.notifier.send_rebalance_reminder(trade_date, holdings, candidates)
+            except Exception as e:
+                logger.error("Rebalance reminder send failed: %s", e)
+
 
     def _build_review_sections(self, start_date: str, end_date: str) -> dict:
         reports = self.db.get_daily_reports(start_date, end_date, limit=60)
