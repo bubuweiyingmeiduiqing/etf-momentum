@@ -248,10 +248,11 @@ class StrategyEngine:
         if prev.get("trade_date") and prev.get("holdings"):
             prior_text = f"<p><b>上期持仓({prev['trade_date']}):</b> "
             for h in prev["holdings"]:
-                prior_text += f"{h.get('code','?')} {h.get('pct','?')}%, "
+                pct = h.get("pct", h.get("risk_parity_weight", 0))
+                prior_text += f"{h.get('code','?')} {h.get('name','?')} {pct}%, "
             prior_text = prior_text.rstrip(", ") + "</p>"
-            if prev.get("stop_status"):
-                prior_text += f"<p><b>止损状态:</b> {prev['stop_status']}</p>"
+            if prev.get("vol_trigger"):
+                prior_text += f"<p><b>上期模式:</b> {'防御' if prev['vol_trigger'] else '进攻'}</p>"
 
         # Special performers
         top_etf = sorted(result.etfs, key=lambda e: e.risk_adjusted_score or -999, reverse=True)[0]

@@ -38,6 +38,28 @@ class ReportGenerator:
             trade_date = self.calendar.last_trade_day()
         logger.info("=== Generate daily report: %s ===", trade_date)
 
+        # Auto-sync: copy latest quotes to daily_summary if today's data is missing
+        today = datetime.now().strftime("%Y-%m-%d")
+        if trade_date >= today:
+            try:
+                from core.database import Database as DB
+                db2 = DB(self.config["database"]["path"])
+                for sym in self.engine.pool:
+                    rows = db2.get_daily_summary(sym, limit=1)
+                    if not rows or rows[-1].get("date") != trade_date:
+                        q = db2.get_latest_quote(sym)
+                        if q and q.get("close"):
+                            db2.upsert_daily_summary(sym, {
+                                "date": trade_date,
+                                "open": q.get("open"), "high": q.get("high"),
+                                "low": q.get("low"), "close": q.get("close"),
+                                "volume": q.get("volume"),
+                                "change_pct": q.get("change_pct"),
+                            })
+                logger.info("Auto-synced quotes to daily_summary for %s", trade_date)
+            except Exception as e:
+                logger.warning("Auto-sync skipped: %s", e)
+
         # DATA FRESHNESS CHECK: verify daily_summary has data for this date
         for sym in ["510500", "513100"]:
             rows = self.db.get_daily_summary(sym, limit=1)
@@ -123,7 +145,9 @@ class ReportGenerator:
             html_content=html,
             position_advice=json.dumps({
                 "trade_date": trade_date,
-                "holdings": [{"code": h[0], "name": h[1], "score": h[2], "atr_pct": h[3]} for h in result.target_holdings],
+                "holdings": [{"code": h["code"], "name": h["name"],
+                              "pct": h.get("risk_parity_weight", 0),
+                              "score": h.get("risk_adjusted_score", 0)} for h in result.target_holdings],
                 "candidates": [[c[0], c[1], c[2], c[3]] for c in result.candidates],
                 "vol_trigger": result.vol_trigger_active,
             }, cls=NumpyEncoder, ensure_ascii=False),
