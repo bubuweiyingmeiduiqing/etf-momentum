@@ -211,94 +211,112 @@ class StrategyEngine:
 
 
     def build_formatted_data(self, result, previous_positions=None):
-        """Build pre-computed HTML data tables with emoji + critical highlighting."""
+        """3-section report: Price header + Summary with prior positions + Strategy table."""
         sections = {}
         NL = chr(10)
+        prev = previous_positions or {}
 
+        # ====== SECTION 1: PRICE HEADER ======
         price_rows = []
         for etf in result.etfs:
-            chg = f"{etf.return_5d_pct}%" if etf.return_5d_pct else "N/A"
-            price_rows.append(f"<tr><td>{etf.code}</td><td>{etf.name}</td><td><b>{etf.close:.3f}</b></td><td>{chg}</td></tr>")
-        sections["header"] = (
-            f"<h2>{chr(0x1F4CA)} {result.trade_date} ETF收盘价</h2>" + NL
+            ch5 = f"{etf.return_5d_pct:+.2f}%" if etf.return_5d_pct else "N/A"
+            ch20 = f"{etf.return_20d_pct:+.2f}%" if etf.return_20d_pct else "N/A"
+            price_rows.append(
+                f"<tr><td>{etf.code}</td><td>{etf.name}</td>"
+                f"<td><b>{etf.close:.3f}</b></td>"
+                f"<td>{ch5}</td><td>{ch20}</td></tr>")
+        sections["s1_price"] = (
+            f"<h2>{chr(0x1F4CA)} {result.trade_date} 收盘数据</h2>" + NL
             + "<table border=1 cellpadding=5 cellspacing=0 style='border-collapse:collapse;width:100%'>" + NL
-            + "<tr style='background:#0b5394;color:#fff'><th>代码</th><th>名称</th><th>收盘价</th><th>5日涨跌</th></tr>" + NL
+            + "<tr style='background:#0b5394;color:#fff'><th>代码</th><th>名称</th><th>收盘价</th><th>5日涨跌</th><th>20日涨跌</th></tr>" + NL
             + "".join(price_rows) + NL + "</table>"
         )
 
+        # ====== SECTION 2: SUMMARY with prior positions ======
         avg_atr = round(result.avg_pool_atr_pct, 2)
         threshold = 3.5
         ratio = avg_atr / threshold
         if ratio < 0.7:
-            light, lcolor = chr(0x1F7E2) + " LOW VOL (安全)", "#1a7a1a"
+            light, lcolor, ltxt = chr(0x1F7E2), "#1a7a1a", "低波安全"
         elif ratio < 1.0:
-            light, lcolor = chr(0x1F7E1) + " WARNING (关注)", "#e67e00"
+            light, lcolor, ltxt = chr(0x1F7E1), "#e67e00", "关注"
         else:
-            light, lcolor = chr(0x1F534) + " DEFENSE (防御)", "#b00020"
-        sections["sentiment"] = (
-            f"<div style='background:#f0f4f8;border-left:4px solid {lcolor};padding:12px;margin:8px 0'>"
-            f"<b>{chr(0x1F4CA)} 市场情绪:</b> {light} | 平均ATR {avg_atr}% vs 阈值{threshold}% ({round(ratio*100)}%)"
-            f"</div>"
+            light, lcolor, ltxt = chr(0x1F534), "#b00020", "防御触发"
+
+        # Prior position summary
+        prior_text = ""
+        if prev.get("trade_date") and prev.get("holdings"):
+            prior_text = f"<p><b>上期持仓({prev['trade_date']}):</b> "
+            for h in prev["holdings"]:
+                prior_text += f"{h.get('code','?')} {h.get('pct','?')}%, "
+            prior_text = prior_text.rstrip(", ") + "</p>"
+            if prev.get("stop_status"):
+                prior_text += f"<p><b>止损状态:</b> {prev['stop_status']}</p>"
+
+        # Special performers
+        top_etf = sorted(result.etfs, key=lambda e: e.risk_adjusted_score or -999, reverse=True)[0]
+        worst_etf = sorted(result.etfs, key=lambda e: e.risk_adjusted_score or 999)[0]
+        high_vol = [e for e in result.etfs if e.atr_pct and e.atr_pct > 3.5]
+        
+        specials = ""
+        if top_etf.risk_adjusted_score:
+            specials += f"<li><b>动量领先:</b> {top_etf.code} {top_etf.name} 得分{top_etf.risk_adjusted_score:.2f} (20日收益{top_etf.return_20d_pct:+.2f}%)</li>"
+        if high_vol:
+            for hv in high_vol:
+                specials += f"<li><b>高波动:</b> {hv.code} {hv.name} ATR {hv.atr_pct}% {'(超过3.5%阈值)' if hv.atr_pct and hv.atr_pct > 3.5 else ''}</li>"
+
+        sections["s2_summary"] = (
+            f"<div style='background:#f0f4f8;border-left:4px solid {lcolor};padding:12px;margin:8px 0'>" + NL
+            + f"<b>{chr(0x1F4CA)} 市场情绪:</b> {light} {ltxt} | 平均ATR {avg_atr}% vs 阈值{threshold}% ({round(ratio*100)}%)" + NL
+            + f"</div>" + NL
+            + f"<h3>{chr(0x1F3AF)} 特殊表现</h3><ul>{specials}</ul>" + NL
+            + prior_text
         )
 
+        # ====== SECTION 3: STRATEGY TABLE (all-in-one) ======
         rows = []
         for etf in sorted(result.etfs, key=lambda e: e.risk_adjusted_score or -999, reverse=True):
+            # Score emoji
             s = etf.risk_adjusted_score or 0
-            if s >= 3: emoji = chr(0x1F7E2)
-            elif s >= 1.5: emoji = chr(0x1F7E1)
-            elif s > 0: emoji = chr(0x1F7E0)
-            else: emoji = chr(0x1F534)
-            bold = "font-weight:bold;color:#e67e00" if 1.0 <= s < 2.0 else ""
-            rows.append(f"<tr><td>{etf.score_rank or '-'}</td><td>{etf.code}</td><td>{etf.name}</td><td>{etf.return_20d_pct}%</td><td>{etf.volatility_20d_pct}%</td><td style='{bold}'>{emoji} {s:.2f}</td></tr>")
-        sections["momentum"] = (
-            f"<h2>{chr(0x1F4C8)} 风险调整动量排名</h2>" + NL
-            + "<table border=1 cellpadding=5 cellspacing=0 style='border-collapse:collapse;width:100%'>" + NL
-            + "<tr style='background:#0b5394;color:#fff'><th>排名</th><th>代码</th><th>名称</th><th>20d收益</th><th>20d波动</th><th>得分</th></tr>" + NL
-            + "".join(rows) + NL + "</table>"
-        )
+            if s >= 3: se = chr(0x1F7E2)
+            elif s >= 1.5: se = chr(0x1F7E1)
+            elif s > 0: se = chr(0x1F7E0)
+            else: se = chr(0x1F534)
+            # Trend
+            if etf.filter_pass: te = chr(0x1F7E2)
+            else: te = chr(0x1F534)
+            # SMA20 direction
+            dmap = {"上行": chr(0x1F7E2), "走平": chr(0x26A0)+chr(0xFE0F), "下行": chr(0x1F534)}
+            de = dmap.get(etf.sma20_direction, "")
+            # ATR highlight
+            atr_style = "font-weight:bold;color:#b00020" if etf.atr_pct and etf.atr_pct > 3.5 else ""
+            # Score style
+            score_style = "font-weight:bold;color:#e67e00" if 1.0 <= s < 2.0 else ""
 
-        rows2 = []
-        for etf in result.etfs:
-            dir_map = {"上行": chr(0x1F7E2) + " 上行", "下行": chr(0x1F534) + " 下行", "走平": chr(0x26A0) + chr(0xFE0F) + " 走平"}
-            dir_disp = dir_map.get(etf.sma20_direction, etf.sma20_direction)
-            filter_disp = chr(0x1F7E2) + " PASS" if etf.filter_pass else chr(0x1F534) + " FAIL"
-            above_disp = chr(0x1F7E2) + " YES" if etf.close_above_sma20 else chr(0x1F534) + " NO"
-            slope = etf.sma20_slope_pct
-            slope_str = f"{slope}%" if slope else "N/A"
-            slope_style = "font-weight:bold;color:#e67e00" if slope and abs(slope) < 0.3 else ""
-            price_style = ""
-            if etf.sma20 and etf.close and abs(etf.close - etf.sma20) / etf.sma20 < 0.01:
-                price_style = "font-weight:bold;color:#b00020"
-            rows2.append(f"<tr><td>{etf.code}</td><td>{etf.name}</td><td style='{price_style}'><b>{etf.close:.3f}</b></td><td>{etf.sma20:.4f}</td><td>{dir_disp}</td><td style='{slope_style}'>{slope_str}</td><td>{above_disp}</td><td>{filter_disp}</td><td>{etf.sma5:.4f}</td><td>{etf.sma5_direction}</td></tr>")
-        sections["trend"] = (
-            f"<h2>{chr(0x1F4C9)} 趋势过滤与均线</h2>" + NL
-            + "<table border=1 cellpadding=5 cellspacing=0 style='border-collapse:collapse;width:100%'>" + NL
-            + "<tr style='background:#0b5394;color:#fff'><th>代码</th><th>名称</th><th>收盘价</th><th>SMA20</th><th>方向</th><th>斜率</th><th>&gt;SMA20</th><th>过滤</th><th>SMA5</th><th>SMA5方向</th></tr>" + NL
-            + "".join(rows2) + NL + "</table>"
-        )
+            rows.append(
+                f"<tr>"
+                f"<td>{etf.score_rank or '-'}</td><td>{etf.code}</td><td>{etf.name}</td>"
+                f"<td>{etf.close:.3f}</td>"
+                f"<td>{etf.return_20d_pct:+.2f}%</td>"
+                f"<td>{etf.volatility_20d_pct:.2f}%</td>"
+                f"<td style='{score_style}'>{se} {s:.2f}</td>"
+                f"<td>{etf.sma20:.3f}</td><td>{de} {etf.sma20_direction}</td>"
+                f"<td>{te} {'PASS' if etf.filter_pass else 'FAIL'}</td>"
+                f"<td style='{atr_style}'>{etf.atr_pct}%</td>"
+                f"</tr>")
 
-        rows3 = []
-        for etf in result.etfs:
-            atr_pct = etf.atr_pct
-            atr_style = "font-weight:bold;color:#b00020" if atr_pct and atr_pct > 3.5 else ""
-            rows3.append(f"<tr><td>{etf.code}</td><td>{etf.name}</td><td>{etf.atr_14d:.4f}</td><td style='{atr_style}'>{atr_pct}%</td><td>{etf.return_5d_pct}%</td><td>{etf.return_10d_pct}%</td></tr>")
-        trigger_emoji = chr(0x1F6E1) + chr(0xFE0F) if result.vol_trigger_active else chr(0x2694) + chr(0xFE0F)
-        trigger_text = "DEFENSE" if result.vol_trigger_active else "ATTACK"
-        sections["volatility"] = (
-            f"<h2>{chr(0x1F30A)} 波动率与风险</h2>" + NL
-            + f"<p>Avg Pool ATR%: <b>{avg_atr}%</b> | 模式: <b>{trigger_emoji} {trigger_text}</b></p>" + NL
-            + "<table border=1 cellpadding=5 cellspacing=0 style='border-collapse:collapse;width:100%'>" + NL
-            + "<tr style='background:#0b5394;color:#fff'><th>代码</th><th>名称</th><th>ATR14</th><th>ATR%</th><th>5d收益</th><th>10d收益</th></tr>" + NL
-            + "".join(rows3) + NL + "</table>"
+        sections["s3_strategy"] = (
+            f"<h2>{chr(0x1F4C8)} 策略参数总览</h2>" + NL
+            + "<table border=1 cellpadding=5 cellspacing=0 style='border-collapse:collapse;width:100%;font-size:13px'>" + NL
+            + "<tr style='background:#0b5394;color:#fff'>"
+            + "<th>排名</th><th>代码</th><th>名称</th><th>收盘价</th><th>20日收益</th><th>20日波动</th><th>风险调整得分</th><th>SMA20</th><th>均线方向</th><th>趋势过滤</th><th>ATR%</th>"
+            + "</tr>" + NL
+            + "".join(rows) + NL + "</table>" + NL
+            + f"<p><b>全资产平均ATR:</b> {avg_atr}% | <b>阈值:</b> {threshold}% | "
+            + f"<b>模式:</b> {chr(0x1F6E1)+chr(0xFE0F) if result.vol_trigger_active else chr(0x2694)+chr(0xFE0F)} "
+            + f"{'DEFENSE 防御' if result.vol_trigger_active else 'ATTACK 进攻'} | "
+            + f"<b>通过过滤:</b> {len(result.candidates)}/{len(result.etfs)}</p>"
         )
-
-        if result.candidates:
-            cl = []
-            for c in result.candidates:
-                cl.append(f"<li>{c[0]} {c[1]} Score:{c[2]} ATR%:{c[3]}</li>")
-            sections["candidates"] = f"<h3>{chr(0x1F3AF)} 备选池</h3><ul>" + "".join(cl) + "</ul>"
-        else:
-            sections["candidates"] = f"<h3>{chr(0x1F3AF)} 备选池</h3><p>无品种通过</p>"
 
         return sections
     def build_data_input(self, result, previous_positions=None, cross_border_premiums=None):

@@ -60,12 +60,9 @@ class ReportGenerator:
         user_prompt = user_prompt.replace("{REPORT_DATE}", trade_date)
         user_prompt = user_prompt.replace("{IS_REBALANCE_DAY}",
             "\u662f\uff08\u5468\u4e00\u8c03\u4ed3\u65e5\uff09" if is_monday else "\u5426")
-        user_prompt = user_prompt.replace("{PRECOMPUTED_HEADER}", formatted_data.get("header", ""))
-        user_prompt = user_prompt.replace("{PRECOMPUTED_SENTIMENT}", formatted_data.get("sentiment", ""))
-        user_prompt = user_prompt.replace("{PRECOMPUTED_MOMENTUM}", formatted_data.get("momentum", ""))
-        user_prompt = user_prompt.replace("{PRECOMPUTED_TREND}", formatted_data.get("trend", ""))
-        user_prompt = user_prompt.replace("{PRECOMPUTED_VOLATILITY}", formatted_data.get("volatility", ""))
-        user_prompt = user_prompt.replace("{PRECOMPUTED_CANDIDATES}", formatted_data.get("candidates", ""))
+        user_prompt = user_prompt.replace("{PRECOMPUTED_S1}", formatted_data.get("s1_price", ""))
+        user_prompt = user_prompt.replace("{PRECOMPUTED_S2}", formatted_data.get("s2_summary", ""))
+        user_prompt = user_prompt.replace("{PRECOMPUTED_S3}", formatted_data.get("s3_strategy", ""))
 
         # Inject actual closing prices as anti-hallucination anchors
         for etf in result.etfs:
@@ -124,7 +121,12 @@ class ReportGenerator:
             strategy_result=json.dumps(result.to_dict(), cls=NumpyEncoder, ensure_ascii=False),
             data_input=json.dumps(data_input, cls=NumpyEncoder, ensure_ascii=False),
             html_content=html,
-            position_advice=json.dumps(data_input.get("current_positions", {}), cls=NumpyEncoder, ensure_ascii=False),
+            position_advice=json.dumps({
+                "trade_date": trade_date,
+                "holdings": [{"code": h[0], "name": h[1], "score": h[2], "atr_pct": h[3]} for h in result.target_holdings],
+                "candidates": [[c[0], c[1], c[2], c[3]] for c in result.candidates],
+                "vol_trigger": result.vol_trigger_active,
+            }, cls=NumpyEncoder, ensure_ascii=False),
         )
 
     def _save_review_report(self, start_date, end_date, review_type, html):

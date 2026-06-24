@@ -1,71 +1,36 @@
-【ETF Multi-Asset Global Rotation - Quant Daily Report】
+【ETF量化日报 - 3段式精简版】
 
-Report Date: {REPORT_DATE}    Rebalance: {IS_REBALANCE_DAY}
+报告日期: {REPORT_DATE}    调仓日: {IS_REBALANCE_DAY}
 
 ============================================================
-CRITICAL OUTPUT RULES - READ FIRST:
+输出规则(必须遵守):
+1. 下面每个 [PRECOMPUTED TABLE] 必须原样复制到输出，不改任何字符
+2. 你只写分析文字，放在对应表格的下方
+3. 禁止编造数字，禁止使用"表现良好"等模糊词
+4. 输出纯HTML片段，从第一张表格开始
 ============================================================
-The sections below labeled [PRECOMPUTED TABLE] are already-generated
-HTML. You MUST copy them VERBATIM into your output. Do NOT modify,
-regenerate, or replace any table, number, or emoji in these sections.
-Your analysis text goes AFTER each table, not instead of it.
-============================================================
 
---- [PRECOMPUTED TABLE] Price Header ---
-Copy this EXACTLY:
-{PRECOMPUTED_HEADER}
+--- [PRECOMPUTED TABLE] 收盘数据 ---
+原样复制:
+{PRECOMPUTED_S1}
 
---- [PRECOMPUTED TABLE] Market Sentiment ---
-Copy this EXACTLY:
-{PRECOMPUTED_SENTIMENT}
+--- [PRECOMPUTED TABLE] 摘要与情绪 ---
+原样复制:
+{PRECOMPUTED_S2}
 
---- Your Analysis: Action Summary ---
-Write a <h2>📋 操作摘要</h2> with:
-- Action Signal: based on sentiment light above
-- 2-3 key observations with specific numbers
+在此下方用1-2句白话补充(不要用**加粗**,不要用列表):
+- 操作信号: 持仓不变 或 建议调仓
+- 调仓摘要: 延续x月x日建议，当前持仓xxx
+- 关键观察: 1句话点出最大风险
 
---- [PRECOMPUTED TABLE] Momentum Ranking ---
-Copy this EXACTLY:
-{PRECOMPUTED_MOMENTUM}
+--- [PRECOMPUTED TABLE] 策略参数总览 ---
+原样复制:
+{PRECOMPUTED_S3}
 
---- Your Analysis: Momentum Commentary ---
-- Why #1 ranked highest? Return-driven or low-vol?
-- Cross-border vs A-share comparison
-- Orange bold scores (1.0-2.0) = borderline, what it means
+在此下方用3-5句分析(自然段落,不要列表,不要**):
+- 动量排名逻辑: 为什么第一? 收益驱动还是低波驱动?
+- 趋势过滤: 通过/未通过原因简要说明
+- 波动风险: ATR超过3.5%的品种预警
 
---- [PRECOMPUTED TABLE] Trend Filter ---
-Copy this EXACTLY:
-{PRECOMPUTED_TREND}
-
---- Your Analysis: Trend Commentary ---
-- PASS/FAIL reasoning per ETF
-- Orange slope (<0.3%) = inflection point, watch closely
-- Red price (within 1% of SMA20) = danger zone
-
---- [PRECOMPUTED TABLE] Volatility ---
-Copy this EXACTLY:
-{PRECOMPUTED_VOLATILITY}
-
---- Your Analysis: Volatility Commentary ---
-- Red bold ATR% (>3.5%) = high risk
-- Avg ATR distance to 3.5% threshold
-- Risk parity: lower ATR = higher weight
-
---- [PRECOMPUTED TABLE] Candidates ---
-Copy this EXACTLY:
-{PRECOMPUTED_CANDIDATES}
-
---- Your Analysis: Rebalance Advice ---
-- Top 2 candidates, risk-parity weights
-- Suggested trades (buy/sell/hold)
-- If <2 candidates: single-position cap 50%
-
---- Your Analysis: Risk Alerts ---
-- Top 2-3 risks with specific numbers
-- Next week watchpoints
-
-OUTPUT RULES:
-- Start from the Price Header table
-- Colors: primary #0b5394, green #1a7a1a, red #b00020, orange #e67e00
-- BANNED: "表现良好" "基本符合" "较为乐观" "适当关注"
-- Footer: "本报告由量化模型自动生成，仅供研究参考，不构成投资建议。"
+报告底部加:
+<p style="color:#888;font-size:12px;margin-top:20px;">本报告由量化模型自动生成,仅供研究参考,不构成投资建议。{REPORT_DATE}</p>
