@@ -106,7 +106,7 @@ class StrategyEngine:
             result.avg_pool_atr_pct = float(np.mean(all_atr_pcts))
             result.vol_trigger_active = result.avg_pool_atr_pct > (VOL_TRIGGER_ATR * 100)
             result.vol_trigger_detail = (
-                f"全资产平均ATR {result.avg_pool_atr_pct*100:.2f}%，"
+                f"全资产平均ATR {result.avg_pool_atr_pct:.2f}%，"
                 f"{'已触发' if result.vol_trigger_active else '未触发'}3.5%截断阈值"
             )
         eligible = [e for e in result.etfs if e.filter_pass and not e.premium_exceeded and (e.risk_adjusted_score or 0) > 0]
@@ -150,19 +150,50 @@ class StrategyEngine:
         last_hist_date = hist[-1].get("date", "N/A")
         if last_hist_date != trade_date:
             logger.error("DATE MISMATCH: %s requested=%s latest_data=%s", code, trade_date, last_hist_date)
-        closes = np.array([h["close"] for h in hist if h.get("close")], dtype=float)
-        highs = np.array([h.get("high", h.get("close")) for h in hist], dtype=float)
-        lows = np.array([h.get("low", h.get("close")) for h in hist], dtype=float)
-        volumes = np.array([h.get("volume", 0) for h in hist], dtype=float)
-        if len(closes) < 9:
+        # Build aligned arrays: filter out rows with missing/invalid OHLC data
+        valid_rows = []
+        for h in hist:
+            c = h.get("close")
+            if c is not None and isinstance(c, (int, float)) and 0.01 < c < 100000:
+                valid_rows.append(h)
+            else:
+                logger.warning("%s row date=%s has invalid close=%s, skipping", code, h.get("date"), c)
+        if len(valid_rows) < 9:
+            logger.warning("%s only %d valid rows after filtering", code, len(valid_rows))
             return None
+        closes = np.array([h["close"] for h in valid_rows], dtype=float)
+        highs = np.array([h.get("high", h["close"]) for h in valid_rows], dtype=float)
+        lows = np.array([h.get("low", h["close"]) for h in valid_rows], dtype=float)
+        volumes = np.array([h.get("volume", 0) or 0 for h in valid_rows], dtype=float)
+        # Verify last valid row date matches trade_date
+        last_valid_date = valid_rows[-1].get("date", "N/A")
+        if last_valid_date != trade_date:
+            logger.error("DATE MISMATCH after filter: %s requested=%s valid_last=%s", code, trade_date, last_valid_date)
         latest = closes[-1]
+        if latest <= 0:
+            logger.error("%s latest close=%s is invalid, abort", code, latest)
+            return None
         ind = EtfIndicators(code=code, name=name, trade_date=trade_date, close=latest)
         if len(closes) >= 21:
-            ind.return_20d_pct = round((closes[-1] / closes[-21] - 1) * 100, 2)
+            if closes[-21] > 0.001:
+                r20 = (closes[-1] / closes[-21] - 1) * 100
+                if -80 < r20 < 200:
+                    ind.return_20d_pct = round(r20, 2)
+                else:
+                    logger.error("%s return_20d=%.2f%% anomalous, data suspect", code, r20)
+            else:
+                logger.error("%s closes[-21]=%s near-zero, return skipped", code, closes[-21])
         if len(closes) >= 20:
-            rets = np.diff(closes[-21:]) / closes[-21:-1]
-            ind.volatility_20d_pct = round(float(np.std(rets) * 100), 2)
+            denom = closes[-21:-1]
+            if np.any(np.abs(denom) < 0.001):
+                logger.error("%s has near-zero price in 20d window, volatility skipped", code)
+            else:
+                rets = np.diff(closes[-21:]) / denom
+                std_ret = float(np.std(rets))
+                if std_ret < 0.5:
+                    ind.volatility_20d_pct = round(std_ret * 100, 2)
+                else:
+                    logger.error("%s volatility_20d std=%.4f anomalous, data suspect", code, std_ret)
         if ind.return_20d_pct and ind.volatility_20d_pct and ind.volatility_20d_pct > 0:
             ind.risk_adjusted_score = round(ind.return_20d_pct / ind.volatility_20d_pct, 2)
         if len(closes) >= 5:
@@ -201,8 +232,12 @@ class StrategyEngine:
                 tr = max(h - lv, abs(h - pc), abs(pc - lv))
                 trs.append(tr)
             ind.atr_14d = round(float(np.mean(trs)), 4)
-            if latest > 0:
-                ind.atr_pct = round(ind.atr_14d / latest * 100, 2)
+            if latest > 0.001:
+                raw_atr_pct = ind.atr_14d / latest * 100
+                if 0.01 < raw_atr_pct < 50:
+                    ind.atr_pct = round(raw_atr_pct, 2)
+                else:
+                    logger.error("%s ATR%%=%.2f anomalous (atr_14d=%.4f latest=%.3f), data suspect", code, raw_atr_pct, ind.atr_14d, latest)
         if len(volumes) >= 20:
             vavg = np.mean(volumes[-21:-1])
             if vavg > 0:
