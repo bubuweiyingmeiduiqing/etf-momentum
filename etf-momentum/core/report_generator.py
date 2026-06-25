@@ -123,6 +123,7 @@ class ReportGenerator:
         user_prompt = user_prompt.replace("{END_DATE}", end_date)
         user_prompt = user_prompt.replace("{TRADING_DAYS}", str(sections.get("total_trading_days", 0)))
         user_prompt = user_prompt.replace("{REBALANCE_COUNT}", str(sections.get("rebalance_count", 0)))
+        user_prompt = user_prompt.replace("{MARKET_CONTEXT}", sections.get("market_context", ""))
         user_prompt = user_prompt.replace("{PRECOMPUTED_R1}", sections.get("r1_performance", ""))
         user_prompt = user_prompt.replace("{PRECOMPUTED_R2}", sections.get("r2_rebalance", ""))
         user_prompt = user_prompt.replace("{PRECOMPUTED_R3}", sections.get("r3_stops", ""))
@@ -193,23 +194,35 @@ class ReportGenerator:
 
 
     def _build_review_sections(self, start_date: str, end_date: str) -> dict:
-        reports = self.db.get_daily_reports(start_date, end_date, limit=60)
-        if not reports:
-            logger.warning("No daily reports found in %s ~ %s", start_date, end_date)
+        # Load ALL reports from inception for continuous NAV computation
+        all_reports = self.db.get_daily_reports(limit=200)
+        if not all_reports:
+            logger.warning("No daily reports found")
             return {"total_trading_days": 0, "rebalance_count": 0,
-                    "r1_performance": "", "r2_rebalance": "", "r3_stops": "", "r4_filters": ""}
+                    "market_context": "", "r1_performance": "", "r2_rebalance": "",
+                    "r3_stops": "", "r4_filters": ""}
 
-        reports.sort(key=lambda r: r.get("trade_date", ""))
-        price_data = self._load_price_matrix(start_date, end_date)
-        nav_result = self._compute_strategy_nav(reports, price_data)
+        all_reports.sort(key=lambda r: r.get("trade_date", ""))
+        period_reports = [r for r in all_reports if start_date <= r.get("trade_date", "") <= end_date]
+
+        # Price data: need from earliest report for continuous NAV
+        earliest_date = all_reports[0].get("trade_date", "2026-01-01")
+        price_data = self._load_price_matrix(earliest_date, end_date)
+
+        # Compute NAV from inception (continuous, not reset each week)
+        nav_result = self._compute_strategy_nav(all_reports, price_data, start_date, end_date)
+
+        # Build market context
+        market_ctx = self._build_market_context(price_data, start_date, end_date)
 
         return {
-            "total_trading_days": len(reports),
-            "rebalance_count": nav_result.get("rebalance_count", 0),
+            "total_trading_days": len(period_reports),
+            "rebalance_count": nav_result.get("period_rebalance_count", 0),
+            "market_context": market_ctx,
             "r1_performance": self._build_r1_performance(nav_result, start_date, end_date),
-            "r2_rebalance": self._build_r2_rebalance(reports, price_data),
-            "r3_stops": self._build_r3_stops(reports, price_data),
-            "r4_filters": self._build_r4_filters(reports),
+            "r2_rebalance": self._build_r2_rebalance(period_reports, price_data),
+            "r3_stops": self._build_r3_stops(all_reports, price_data),
+            "r4_filters": self._build_r4_filters(period_reports),
         }
 
     def _load_price_matrix(self, start_date: str, end_date: str) -> dict:
@@ -226,9 +239,11 @@ class ReportGenerator:
                 price_data[sym] = sym_prices
         return price_data
 
-    def _compute_strategy_nav(self, reports: list, price_data: dict) -> dict:
+    def _compute_strategy_nav(self, reports: list, price_data: dict, period_start: str = None, period_end: str = None) -> dict:
         INITIAL_CAPITAL = 100000.0
         nav = INITIAL_CAPITAL
+        period_start_nav = INITIAL_CAPITAL
+        period_start_set = False
         nav_history = []
         holdings = {}
         rebalance_dates = []
@@ -282,6 +297,11 @@ class ReportGenerator:
 
             nav_history.append({"date": trade_date, "nav": round(actual_nav, 2)})
 
+            # Capture NAV at period start
+            if period_start and trade_date >= period_start and not period_start_set:
+                period_start_nav = actual_nav
+                period_start_set = True
+
             if prev_date:
                 ret = (actual_nav - prev_nav) / prev_nav if prev_nav > 0 else 0
                 daily_returns.append(ret)
@@ -295,7 +315,10 @@ class ReportGenerator:
             if len(prices) >= 2:
                 bench_return = (prices[-1][1] - prices[0][1]) / prices[0][1] * 100
 
-        strategy_return = ((nav - INITIAL_CAPITAL) / INITIAL_CAPITAL) * 100
+        # Period return: from period_start to period_end
+        period_return = ((nav - period_start_nav) / period_start_nav) * 100 if period_start_nav > 0 else 0
+        # Cumulative return: from inception
+        cumulative_return = ((nav - INITIAL_CAPITAL) / INITIAL_CAPITAL) * 100
 
         max_dd = 0.0
         peak = INITIAL_CAPITAL
@@ -331,7 +354,9 @@ class ReportGenerator:
 
         return {
             "rebalance_count": len(rebalance_dates),
-            "strategy_return": round(strategy_return, 2),
+            "period_rebalance_count": len([d for d in rebalance_dates if period_start and d >= period_start]),
+            "strategy_return": round(period_return, 2),
+            "cumulative_return": round(cumulative_return, 2),
             "benchmark_return": round(bench_return, 2),
             "excess_return": round(strategy_return - bench_return, 2),
             "max_drawdown": round(max_dd, 2),
@@ -343,6 +368,56 @@ class ReportGenerator:
             "profit_factor": round(profit_factor, 2),
             "final_nav": round(nav, 2),
         }
+
+    def _build_market_context(self, price_data: dict, start_date: str, end_date: str) -> str:
+        """Build market macro context HTML for the review period."""
+        rows = []
+        total_rows = []
+        for sym in self.engine.pool:
+            info = self.engine.pool.get(sym, {})
+            name = info.get("name", sym)
+            prices = price_data.get(sym, {})
+            if not prices:
+                continue
+            sorted_dates = sorted(prices.keys())
+            period_prices = {d: p for d, p in prices.items() if start_date <= d <= end_date}
+            if not period_prices:
+                continue
+            p_dates = sorted(period_prices.keys())
+            first_p = period_prices[p_dates[0]]
+            last_p = period_prices[p_dates[-1]]
+            ret = (last_p - first_p) / first_p * 100 if first_p > 0 else 0
+            rows.append(f"<tr><td>{sym}</td><td>{name}</td><td>{first_p:.3f}</td><td>{last_p:.3f}</td><td style='color:{'#1a7a1a' if ret>0 else '#b00020'}'>{ret:+.2f}%</td></tr>")
+            total_rows.append(ret)
+
+        if not rows:
+            return "<p>No market data available for this period</p>\n"
+
+        # Overall market summary
+        avg_ret = sum(total_rows) / len(total_rows) if total_rows else 0
+        best = max(total_rows) if total_rows else 0
+        worst = min(total_rows) if total_rows else 0
+        green_count = sum(1 for r in total_rows if r > 0)
+        red_count = sum(1 for r in total_rows if r < 0)
+
+        style = ""
+        if avg_ret > 2: style = "\u5f3a\u52b2\u4e0a\u6da8 (bullish)"
+        elif avg_ret > 0: style = "\u5c0f\u5e45\u4e0a\u6da8 (mildly bullish)"
+        elif avg_ret > -2: style = "\u5c0f\u5e45\u4e0b\u8dcc (mildly bearish)"
+        else: style = "\u660e\u663e\u4e0b\u8dcc (bearish)"
+
+        return (
+            f"<p><b>Period:</b> {start_date} ~ {end_date} | DO NOT MODIFY</p>\n"
+            + f"<div style='background:#f0f4f8;border-left:4px solid #0b5394;padding:10px;margin:8px 0'>\n"
+            + f"<b>\u5e02\u573a\u98ce\u683c:</b> {style} | \u5e73\u5747\u6536\u76ca {avg_ret:+.2f}% | "
+            + f"\u6da8\u8dcc\u6bd4 {green_count}:{red_count} | "
+            + f"\u6700\u4f73 {best:+.2f}% / \u6700\u5dee {worst:+.2f}%\n"
+            + f"</div>\n"
+            + "<table border=1 cellpadding=5 cellspacing=0 style='border-collapse:collapse;width:100%'>\n"
+            + "<tr style='background:#0b5394;color:#fff'><th>\u4ee3\u7801</th><th>\u540d\u79f0</th><th>\u671f\u521d\u4ef7</th><th>\u671f\u672b\u4ef7</th><th>\u5468\u6536\u76ca</th></tr>\n"
+            + "".join(rows) + "</table>\n"
+        )
+
 
     def _build_r1_performance(self, nav: dict, start: str, end: str) -> str:
         sr = nav.get("strategy_return", 0)
@@ -366,7 +441,9 @@ class ReportGenerator:
 
         rows = []
         rows.append("<tr style='background:#0b5394;color:#fff'><th>\u6307\u6807</th><th>\u7b56\u7565\u503c</th><th>\u57fa\u51c6(\u6caa\u6df1300)</th><th>\u8d85\u989d</th><th>\u8bc4\u4ef7</th></tr>")
-        rows.append("<tr><td><b>\u7d2f\u8ba1\u6536\u76ca</b></td><td style='color:" + ("#1a7a1a" if sr>0 else "#b00020") + "'>" + f"{sr:+.2f}%</td><td>{br:+.2f}%</td><td style='color:{ex_color}'>{er:+.2f}%</td><td>" + (GREEN if er>0 else RED) + (" \u8dd1\u8d62" if er>0 else " \u8dd1\u8f93") + "</td></tr>")
+        cr = nav.get("cumulative_return", 0)
+        rows.append("<tr><td><b>\u7d2f\u8ba1\u6536\u76ca(\u81ea\u8d77\u59cb)</b></td><td style='color:" + ("#1a7a1a" if cr>0 else "#b00020") + "'>" + f"{cr:+.2f}%</td><td>{br:+.2f}%</td><td style='color:{ex_color}'>{er:+.2f}%</td><td>" + (GREEN if er>0 else RED) + (" \u8dd1\u8d62" if er>0 else " \u8dd1\u8f93") + "</td></tr>")
+        rows.append("<tr><td><b>\u672c\u5468\u6536\u76ca</b></td><td style='color:" + ("#1a7a1a" if sr>0 else "#b00020") + "'>" + f"{sr:+.2f}%</td><td>-</td><td>-</td><td></td></tr>")
         rows.append("<tr><td><b>\u6700\u5927\u56de\u64a4</b></td><td style='color:" + dd_color + "'>" + f"{md:.2f}%</td><td>-</td><td>-</td><td>" + (GREEN if md<5 else (WARN if md<10 else RED)) + (" \u4f18\u79c0" if md<5 else (" \u8b66\u6212" if md<10 else " \u5371\u9669")) + "</td></tr>")
         rows.append("<tr><td><b>\u590f\u666e\u6bd4\u7387</b></td><td>{:.2f}</td><td>-</td><td>-</td><td>".format(sh) + (GREEN if sh>1 else (WARN if sh>0 else RED)) + (" \u826f\u597d" if sh>1 else (" \u4e00\u822c" if sh>0 else " \u8d1f\u503c")) + "</td></tr>")
         rows.append("<tr><td><b>\u5361\u739b\u6bd4\u7387</b></td><td>{:.2f}</td><td>-</td><td>-</td><td></td></tr>".format(ca))
