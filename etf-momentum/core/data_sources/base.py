@@ -12,7 +12,7 @@ class DataSource(ABC):
     def __init__(self, name: str, priority: int = 100):
         self.name = name
         self.priority = priority
-        self.circuit_breaker = CircuitBreaker(failure_threshold=3, cooldown_seconds=120)
+        self.circuit_breaker = CircuitBreaker(failure_threshold=10, cooldown_seconds=30)
         self._call_count = 0
         self._fail_count = 0
 

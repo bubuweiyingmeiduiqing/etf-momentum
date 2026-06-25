@@ -37,6 +37,7 @@ class YFinanceSource(DataSource):
             end_ts = int(time.time()) + 86400
             start_ts = end_ts - 5 * 86400
             url = f"https://query1.finance.yahoo.com/v8/finance/chart/{ys}"
+            url2 = f"https://query2.finance.yahoo.com/v8/finance/chart/{ys}"
             params = {
                 "period1": str(start_ts), "period2": str(end_ts),
                 "interval": "1d", "events": "history",

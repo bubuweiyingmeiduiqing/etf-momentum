@@ -27,7 +27,7 @@ class SourceManager:
         ]
         self.sources.sort(key=lambda s: s.priority)
         # Cooldown between ETF requests to avoid rate limits
-        self._cooldown_seconds = 3.0
+        self._cooldown_seconds = 5.0
         logger.info("Data sources initialized: %s (cooldown %.1fs)", [s.name for s in self.sources], self._cooldown_seconds)
 
     def fetch_realtime(self, symbol: str) -> Optional[dict]:
@@ -51,24 +51,29 @@ class SourceManager:
         return None
 
     def fetch_history(self, symbol: str, start_date: str, end_date: str) -> pd.DataFrame:
-        """Try all sources for historical data (no circuit breaker for history)."""
+        """Try all sources for historical data with circuit reset between symbols."""
         import time as t
         for source in self.sources:
-            logger.debug("Trying %s for %s history", source.name, symbol)
-            time.sleep(self._cooldown_seconds)
+            if not source.is_available():
+                logger.debug("Source %s circuit open, skipping %s", source.name, symbol)
+                continue
+            logger.info("Trying %s for %s history (%s ~ %s)", source.name, symbol, start_date, end_date)
+            t.sleep(self._cooldown_seconds)
             for attempt in range(1, 4):
                 try:
                     df = source.fetch_history(symbol, start_date, end_date)
                     if not df.empty:
-                        logger.debug("Source %s returned %d rows for %s", source.name, len(df), symbol)
+                        logger.info("Source %s OK: %d rows for %s", source.name, len(df), symbol)
+                        self.reset_circuits()
                         return df
+                    logger.debug("Source %s attempt %d: empty result", source.name, attempt)
                     if attempt < 3:
-                        t.sleep(2 * attempt)
+                        t.sleep(3 * attempt)
                 except Exception as e:
-                    logger.debug("Source %s attempt %d: %s", source.name, attempt, e)
+                    logger.warning("Source %s attempt %d/%d for %s: %s", source.name, attempt, 3, symbol, str(e)[:100])
                     if attempt < 3:
-                        t.sleep(2 * attempt)
-            logger.debug("Source %s exhausted for %s", source.name, symbol)
+                        t.sleep(3 * attempt)
+            logger.warning("Source %s exhausted for %s", source.name, symbol)
         logger.error("All sources failed for %s history", symbol)
         return pd.DataFrame()
 
