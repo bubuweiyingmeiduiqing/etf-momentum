@@ -1,4 +1,4 @@
-﻿"""配置加载模块"""
+"""配置加载模块"""
 
 import os
 import yaml
@@ -42,6 +42,7 @@ def _apply_env_overrides(config: dict) -> None:
         "ETF_EMAIL_SENDER": ("email", "sender"),
         "ETF_EMAIL_PASSWORD": ("email", "password"),
         "ETF_WEB_SECRET_KEY": ("web", "secret_key"),
+        "ETF_DEEPSEEK_API_KEY": ("deepseek", "api_key"),
     }
     for env_key, (section, key) in env_map.items():
         val = os.environ.get(env_key)
