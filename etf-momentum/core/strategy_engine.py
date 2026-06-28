@@ -89,8 +89,9 @@ class StrategyResult:
 
 
 class StrategyEngine:
-    def __init__(self, db):
+    def __init__(self, db, strategy_config: StrategyConfig = None):
         self.db = db
+        self.cfg = strategy_config or V1_CONFIG
         self.pool = STRATEGY_ETF_POOL
 
     def compute_all(self, trade_date: str):
