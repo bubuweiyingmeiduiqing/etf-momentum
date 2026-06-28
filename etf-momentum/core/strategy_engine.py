@@ -5,6 +5,7 @@ import numpy as np
 import json
 from dataclasses import dataclass, field, asdict
 from typing import Optional
+from core.strategy_config import StrategyConfig, V1_CONFIG
 
 logger = logging.getLogger(__name__)
 
@@ -120,10 +121,26 @@ class StrategyEngine:
                 e.score_eligible = False
         result.candidates = [(e.code, e.name, e.risk_adjusted_score, e.atr_pct) for e in eligible]
         top2 = eligible[:MAX_HOLDINGS]
+
+        # P2: v2 minimum position rule - force 10% into top ETF when filter pass rate < 20%
+        if self.cfg.min_position_pct > 0:
+            filter_pass_count = sum(1 for e in result.etfs if e.filter_pass)
+            filter_pass_rate = filter_pass_count / max(len(result.etfs), 1)
+            if filter_pass_rate < self.cfg.min_filter_threshold and not top2:
+                all_sorted = sorted(result.etfs, key=lambda e: e.risk_adjusted_score or -999, reverse=True)
+                if all_sorted and (all_sorted[0].risk_adjusted_score or 0) > 0:
+                    top2 = [all_sorted[0]]
+
         if top2:
-            inv_atrs = [1.0 / max(e.atr_pct, 0.001) for e in top2]
-            inv_sum = sum(inv_atrs)
-            weights = [inv / inv_sum for inv in inv_atrs]
+            # P1: v2 uses momentum-weighted allocation, v1 uses risk-parity (inverse-ATR)
+            if self.cfg.use_momentum_weight:
+                scores = [max(e.risk_adjusted_score or 0, 0.01) for e in top2]
+                score_sum = sum(scores)
+                weights = [s / score_sum for s in scores]
+            else:
+                inv_atrs = [1.0 / max(e.atr_pct, 0.001) for e in top2]
+                inv_sum = sum(inv_atrs)
+                weights = [inv / inv_sum for inv in inv_atrs]
             if result.vol_trigger_active:
                 result.bond_allocation_pct = DEFENSE_BOND_PCT
                 result.equity_allocation = TOTAL_CAPITAL * (1 - DEFENSE_BOND_PCT)
@@ -194,8 +211,10 @@ class StrategyEngine:
                     ind.volatility_20d_pct = round(std_ret * 100, 2)
                 else:
                     logger.error("%s volatility_20d std=%.4f anomalous, data suspect", code, std_ret)
-        if ind.return_20d_pct and ind.volatility_20d_pct and ind.volatility_20d_pct > 0:
-            ind.risk_adjusted_score = round(ind.return_20d_pct / ind.volatility_20d_pct, 2)
+        # P0: v2 uses return_10d for scoring, v1 uses return_20d
+            ret_for_score = ind.return_10d_pct if self.cfg.use_return_10d_for_score and ind.return_10d_pct else ind.return_20d_pct
+            if ret_for_score and ind.volatility_20d_pct and ind.volatility_20d_pct > 0:
+                ind.risk_adjusted_score = round(ret_for_score / ind.volatility_20d_pct, 2)
         if len(closes) >= 5:
             ind.sma5 = round(float(np.mean(closes[-5:])), 4)
             sma5_prev = round(float(np.mean(closes[-8:-3])), 4) if len(closes) >= 8 else None
@@ -218,7 +237,9 @@ class StrategyEngine:
                     ind.sma20_direction = "下行"
                 else:
                     ind.sma20_direction = "走平"
-            ind.filter_pass = ind.close_above_sma20 and ind.sma20_direction != "下行"
+            # P0: v2 adds 0.5% tolerance band below SMA20
+            tolerance_ok = latest > ind.sma20 * (1 - self.cfg.sma20_tolerance_pct / 100)
+            ind.filter_pass = (ind.close_above_sma20 or tolerance_ok) and ind.sma20_direction != "下行"
         if len(closes) >= 6:
             ind.return_5d_pct = round((closes[-1] / closes[-6] - 1) * 100, 2)
         if len(closes) >= 11:

@@ -8,6 +8,7 @@ from typing import Optional, List, Dict
 from core.trading_calendar import TradingCalendar
 from core.strategy_engine import StrategyEngine, NumpyEncoder
 from core.deepseek_client import DeepSeekClient
+from core.strategy_config import V2_CONFIG
 
 logger = logging.getLogger(__name__)
 PROMPTS_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "prompts")
@@ -23,6 +24,7 @@ class ReportGenerator:
         self.notifier = notifier
         self.calendar = TradingCalendar()
         self.engine = StrategyEngine(db)
+        self.engine_v2 = StrategyEngine(db, V2_CONFIG)  # v2 optimized strategy for A/B comparison
         self.deepseek = DeepSeekClient(config)
         self._load_prompts()
         self._last_review_start = None
@@ -211,6 +213,8 @@ class ReportGenerator:
 
         # Compute NAV from inception (continuous, not reset each week)
         nav_result = self._compute_strategy_nav(all_reports, price_data, start_date, end_date)
+        # Compute V2 (optimized) NAV for A/B comparison
+        nav_result_v2 = self._compute_v2_strategy_nav(all_reports, price_data, start_date, end_date)
 
         # Build market context
         market_ctx = self._build_market_context(price_data, start_date, end_date)
@@ -219,7 +223,7 @@ class ReportGenerator:
             "total_trading_days": len(period_reports),
             "rebalance_count": nav_result.get("period_rebalance_count", 0),
             "market_context": market_ctx,
-            "r1_performance": self._build_r1_performance(nav_result, start_date, end_date),
+            "r1_performance": self._build_r1_performance(nav_result, nav_result_v2, start_date, end_date),
             "r2_rebalance": self._build_r2_rebalance(period_reports, price_data),
             "r3_stops": self._build_r3_stops(all_reports, price_data),
             "r4_filters": self._build_r4_filters(period_reports),
@@ -381,6 +385,159 @@ class ReportGenerator:
             "final_nav": round(nav, 2),
         }
 
+    def _compute_v2_strategy_nav(self, reports: list, price_data: dict,
+                                  period_start: str = None, period_end: str = None) -> dict:
+        """Backtest V2 (optimized) strategy over the same period for A/B comparison."""
+        INITIAL_CAPITAL = 100000.0
+        nav = INITIAL_CAPITAL
+        period_start_nav = INITIAL_CAPITAL
+        period_start_set = False
+        nav_history = []
+        holdings = {}
+        rebalance_dates = []
+        daily_returns = []
+        prev_nav = INITIAL_CAPITAL
+        prev_date = None
+        total_trade_cost = 0.0
+        trade_cost_rate = self.engine_v2.cfg.trade_cost_bps / 10000.0  # bps -> decimal
+
+        for r in reports:
+            trade_date = r.get("trade_date", "")
+            if not trade_date:
+                continue
+
+            # Update NAV from market prices before rebalance
+            if prev_date and holdings:
+                total_value = 0.0
+                for code, h in holdings.items():
+                    close = price_data.get(code, {}).get(trade_date)
+                    if close:
+                        total_value += h["shares"] * close
+                if total_value > 0:
+                    nav = total_value
+
+            # Run V2 strategy for this date
+            v2_result = self.engine_v2.compute_all(trade_date)
+            target = v2_result.target_holdings if v2_result else []
+
+            if target:
+                rebalance_dates.append(trade_date)
+                # Apply trade costs: sell old + buy new
+                if holdings:
+                    old_value = 0.0
+                    for code, h in holdings.items():
+                        close = price_data.get(code, {}).get(trade_date)
+                        if close:
+                            old_value += h["shares"] * close
+                    total_trade_cost += old_value * trade_cost_rate  # sell cost
+
+                new_holdings = {}
+                new_value = 0.0
+                for h in target:
+                    code = h.get("code", "")
+                    target_val = h.get("target_value", 0)
+                    close = price_data.get(code, {}).get(trade_date)
+                    if close and target_val > 0:
+                        shares = target_val / close
+                        new_holdings[code] = {"shares": shares, "name": h.get("name", "")}
+                        new_value += target_val
+                holdings = new_holdings
+                if new_value > 0:
+                    total_trade_cost += new_value * trade_cost_rate  # buy cost
+
+            actual_nav = nav
+            if holdings:
+                actual_nav = 0.0
+                for code, h in holdings.items():
+                    close = price_data.get(code, {}).get(trade_date)
+                    if close:
+                        actual_nav += h["shares"] * close
+                if actual_nav > 0:
+                    nav = actual_nav
+
+            nav_history.append({"date": trade_date, "nav": round(actual_nav, 2)})
+
+            if period_start and trade_date >= period_start and not period_start_set:
+                period_start_nav = actual_nav
+                period_start_set = True
+
+            if prev_date:
+                ret = (actual_nav - prev_nav) / prev_nav if prev_nav > 0 else 0
+                daily_returns.append(ret)
+
+            prev_nav = actual_nav
+            prev_date = trade_date
+
+        # Benchmark (same as v1)
+        bench_return = 0.0
+        if "510300" in price_data and price_data["510300"]:
+            prices = sorted(price_data["510300"].items())
+            period_prices = [(d, p) for d, p in prices if period_start and d >= period_start]
+            if not period_prices:
+                period_prices = prices
+            if len(period_prices) >= 2:
+                bench_return = (period_prices[-1][1] - period_prices[0][1]) / period_prices[0][1] * 100
+
+        cumulative_bench_return = 0.0
+        if "510300" in price_data and price_data["510300"]:
+            all_prices = sorted(price_data["510300"].items())
+            if len(all_prices) >= 2:
+                cumulative_bench_return = (all_prices[-1][1] - all_prices[0][1]) / all_prices[0][1] * 100
+
+        period_return = ((nav - period_start_nav) / period_start_nav) * 100 if period_start_nav > 0 else 0
+        cumulative_return = ((nav - INITIAL_CAPITAL) / INITIAL_CAPITAL) * 100
+
+        max_dd = 0.0
+        peak = INITIAL_CAPITAL
+        for nh in nav_history:
+            nv = nh["nav"]
+            if nv > peak:
+                peak = nv
+            dd = (peak - nv) / peak * 100 if peak > 0 else 0
+            if dd > max_dd:
+                max_dd = dd
+
+        sharpe = 0.0
+        if len(daily_returns) > 1:
+            avg_ret = np.mean(daily_returns)
+            std_ret = np.std(daily_returns, ddof=1)
+            if std_ret > 0:
+                sharpe = (avg_ret / std_ret) * np.sqrt(252)
+
+        calmar = cumulative_return / max_dd if max_dd > 0 else 0
+
+        wins = sum(1 for r in daily_returns if r > 0)
+        total = len(daily_returns)
+        win_rate = (wins / total * 100) if total > 0 else 0
+
+        win_vals = [r for r in daily_returns if r > 0]
+        loss_vals = [r for r in daily_returns if r < 0]
+        avg_win = np.mean(win_vals) * 100 if win_vals else 0
+        avg_loss = np.mean(loss_vals) * 100 if loss_vals else 0
+
+        total_win = sum(win_vals) if win_vals else 0
+        total_loss = abs(sum(loss_vals)) if loss_vals else 1
+        profit_factor = total_win / total_loss if total_loss > 0 else 0
+
+        return {
+            "rebalance_count": len(rebalance_dates),
+            "period_rebalance_count": len([d for d in rebalance_dates if period_start and d >= period_start]),
+            "strategy_return": round(period_return, 2),
+            "cumulative_return": round(cumulative_return, 2),
+            "benchmark_return": round(bench_return, 2),
+            "cumulative_benchmark_return": round(cumulative_bench_return, 2),
+            "excess_return": round(period_return - bench_return, 2),
+            "max_drawdown": round(max_dd, 2),
+            "sharpe": round(sharpe, 2),
+            "calmar": round(calmar, 2),
+            "win_rate": round(win_rate, 1),
+            "avg_win": round(avg_win, 2),
+            "avg_loss": round(avg_loss, 2),
+            "profit_factor": round(profit_factor, 2),
+            "final_nav": round(nav, 2),
+            "total_trade_cost": round(total_trade_cost, 2),
+        }
+
     def _build_market_context(self, price_data: dict, start_date: str, end_date: str) -> str:
         """Build market macro context HTML for the review period."""
         rows = []
@@ -431,7 +588,7 @@ class ReportGenerator:
         )
 
 
-    def _build_r1_performance(self, nav: dict, start: str, end: str) -> str:
+    def _build_r1_performance(self, nav: dict, nav_v2: dict = None, start: str = "", end: str = "") -> str:
         sr = nav.get("strategy_return", 0)
         br = nav.get("benchmark_return", 0)
         cbr = nav.get("cumulative_benchmark_return", 0)
@@ -455,22 +612,63 @@ class ReportGenerator:
         cex_color = "#1a7a1a" if cr > cbr else "#b00020"
 
         rows = []
-        rows.append("<tr style='background:#0b5394;color:#fff'><th>\u6307\u6807</th><th>\u7b56\u7565\u503c</th><th>\u57fa\u51c6(\u6caa\u6df1300)</th><th>\u8d85\u989d</th><th>\u8bc4\u4ef7</th></tr>")
-        rows.append("<tr><td><b>\u7d2f\u8ba1\u6536\u76ca(\u81ea\u8d77\u59cb)</b></td><td style='color:" + ("#1a7a1a" if cr>0 else "#b00020") + "'>" + f"{cr:+.2f}%</td><td>{cbr:+.2f}%</td><td style='color:{cex_color}'>{cr-cbr:+.2f}%</td><td>" + (GREEN if cr>cbr else RED) + (" \u8dd1\u8d62" if cr>cbr else " \u8dd1\u8f93") + "</td></tr>")
-        rows.append("<tr><td><b>\u672c\u5468\u6536\u76ca</b></td><td style='color:" + ("#1a7a1a" if sr>0 else "#b00020") + "'>" + f"{sr:+.2f}%</td><td>-</td><td>-</td><td></td></tr>")
-        rows.append("<tr><td><b>\u6700\u5927\u56de\u64a4</b></td><td style='color:" + dd_color + "'>" + f"{md:.2f}%</td><td>-</td><td>-</td><td>" + (GREEN if md<5 else (WARN if md<10 else RED)) + (" \u4f18\u79c0" if md<5 else (" \u8b66\u6212" if md<10 else " \u5371\u9669")) + "</td></tr>")
-        rows.append("<tr><td><b>\u590f\u666e\u6bd4\u7387</b></td><td>{:.2f}</td><td>-</td><td>-</td><td>".format(sh) + (GREEN if sh>1 else (WARN if sh>0 else RED)) + (" \u826f\u597d" if sh>1 else (" \u4e00\u822c" if sh>0 else " \u8d1f\u503c")) + "</td></tr>")
-        rows.append("<tr><td><b>\u5361\u739b\u6bd4\u7387</b></td><td>{:.2f}</td><td>-</td><td>-</td><td></td></tr>".format(ca))
-        rows.append("<tr><td><b>\u80dc\u7387</b></td><td>{:.1f}%</td><td>-</td><td>-</td><td></td></tr>".format(wr))
-        rows.append("<tr><td><b>\u5e73\u5747\u76c8/\u4e8f</b></td><td>+{:.2f}% / {:.2f}%</td><td>-</td><td>-</td><td></td></tr>".format(aw, al))
-        rows.append("<tr><td><b>\u76c8\u4e8f\u6bd4</b></td><td>{:.2f}</td><td>-</td><td>-</td><td>".format(pf) + (GREEN if pf>1.5 else (WARN if pf>1 else RED)) + "</td></tr>")
-        rows.append("<tr><td><b>\u671f\u672b\u51c0\u503c</b></td><td><b>{:.2f}</b></td><td>-</td><td>-</td><td>\u8d77\u59cb100,000</td></tr>".format(fn))
+        rows.append("<tr style='background:#0b5394;color:#fff'><th>指标</th><th>策略值</th><th>基准(沪深300)</th><th>超额</th><th>评价</th></tr>")
+        rows.append("<tr><td><b>累计收益(自起始)</b></td><td style='color:" + ("#1a7a1a" if cr>0 else "#b00020") + "'>" + f"{cr:+.2f}%</td><td>{cbr:+.2f}%</td><td style='color:{cex_color}'>{cr-cbr:+.2f}%</td><td>" + (GREEN if cr>cbr else RED) + (" 跑赢" if cr>cbr else " 跑输") + "</td></tr>")
+        rows.append("<tr><td><b>本周收益</b></td><td style='color:" + ("#1a7a1a" if sr>0 else "#b00020") + "'>" + f"{sr:+.2f}%</td><td>-</td><td>-</td><td></td></tr>")
+        rows.append("<tr><td><b>最大回撤</b></td><td style='color:" + dd_color + "'>" + f"{md:.2f}%</td><td>-</td><td>-</td><td>" + (GREEN if md<5 else (WARN if md<10 else RED)) + (" 优秀" if md<5 else (" 警戒" if md<10 else " 危险")) + "</td></tr>")
+        rows.append("<tr><td><b>夏普比率</b></td><td>{:.2f}</td><td>-</td><td>-</td><td>".format(sh) + (GREEN if sh>1 else (WARN if sh>0 else RED)) + (" 良好" if sh>1 else (" 一般" if sh>0 else " 负值")) + "</td></tr>")
+        rows.append("<tr><td><b>卡玛比率</b></td><td>{:.2f}</td><td>-</td><td>-</td><td></td></tr>".format(ca))
+        rows.append("<tr><td><b>胜率</b></td><td>{:.1f}%</td><td>-</td><td>-</td><td></td></tr>".format(wr))
+        rows.append("<tr><td><b>平均盈/亏</b></td><td>+{:.2f}% / {:.2f}%</td><td>-</td><td>-</td><td></td></tr>".format(aw, al))
+        rows.append("<tr><td><b>盈亏比</b></td><td>{:.2f}</td><td>-</td><td>-</td><td>".format(pf) + (GREEN if pf>1.5 else (WARN if pf>1 else RED)) + "</td></tr>")
+        rows.append("<tr><td><b>期末净值</b></td><td><b>{:.2f}</b></td><td>-</td><td>-</td><td>起始100,000</td></tr>".format(fn))
 
-        return (
-            "<p><b>Data Timestamp:</b> " + end + " | All values computed from daily_summary close prices | DO NOT MODIFY</p>\n"
+        v1_section = (
+            "<h3>V1 原版策略</h3>\n"
+            + "<p><b>Data Timestamp:</b> " + end + " | DO NOT MODIFY</p>\n"
             + "<table border=1 cellpadding=6 cellspacing=0 style='border-collapse:collapse;width:100%'>\n"
             + "\n".join(rows) + "\n</table>\n"
         )
+
+        # V2 comparison section
+        v2_section = ""
+        if nav_v2:
+            delta = lambda v1, v2: v2 - v1
+            delta_str = lambda d: f"{d:+.2f}"
+            d_cr = delta(cr, nav_v2.get("cumulative_return", 0))
+            d_sr = delta(sr, nav_v2.get("strategy_return", 0))
+            d_md = delta(md, nav_v2.get("max_drawdown", 0))
+            d_sh = delta(sh, nav_v2.get("sharpe", 0))
+            d_ca = delta(ca, nav_v2.get("calmar", 0))
+            d_wr = delta(wr, nav_v2.get("win_rate", 0))
+            d_fn = delta(fn, nav_v2.get("final_nav", 0))
+            tc = nav_v2.get("total_trade_cost", 0)
+
+            d_color = lambda x: "#1a7a1a" if x > 0 else ("#b00020" if x < 0 else "#666")
+            # For drawdown, lower is better (inverted)
+            dd_color_delta = "#1a7a1a" if d_md < 0 else ("#b00020" if d_md > 0 else "#666")
+            d_icon = lambda x: (GREEN + " +" if x > 0 else (RED + " " if x < 0 else ""))
+
+            comp_rows = []
+            comp_rows.append("<tr style='background:#0b5394;color:#fff'><th>指标</th><th>V1原版</th><th>V2优化</th><th>差异</th><th>评价</th></tr>")
+            comp_rows.append(f"<tr><td><b>累计收益</b></td><td>{cr:+.2f}%</td><td>{nav_v2.get('cumulative_return',0):+.2f}%</td><td style='color:{d_color(d_cr)}'>{delta_str(d_cr)}%</td><td>{d_icon(d_cr)}</td></tr>")
+            comp_rows.append(f"<tr><td><b>本周收益</b></td><td>{sr:+.2f}%</td><td>{nav_v2.get('strategy_return',0):+.2f}%</td><td style='color:{d_color(d_sr)}'>{delta_str(d_sr)}%</td><td>{d_icon(d_sr)}</td></tr>")
+            comp_rows.append(f"<tr><td><b>最大回撤</b></td><td>{md:.2f}%</td><td>{nav_v2.get('max_drawdown',0):.2f}%</td><td style='color:{dd_color_delta}'>{delta_str(d_md)}%</td><td>{GREEN if d_md < 0 else (RED if d_md > 0 else '')}</td></tr>")
+            comp_rows.append(f"<tr><td><b>夏普比率</b></td><td>{sh:.2f}</td><td>{nav_v2.get('sharpe',0):.2f}</td><td style='color:{d_color(d_sh)}'>{delta_str(d_sh)}</td><td>{d_icon(d_sh)}</td></tr>")
+            comp_rows.append(f"<tr><td><b>卡玛比率</b></td><td>{ca:.2f}</td><td>{nav_v2.get('calmar',0):.2f}</td><td style='color:{d_color(d_ca)}'>{delta_str(d_ca)}</td><td>{d_icon(d_ca)}</td></tr>")
+            comp_rows.append(f"<tr><td><b>胜率</b></td><td>{wr:.1f}%</td><td>{nav_v2.get('win_rate',0):.1f}%</td><td style='color:{d_color(d_wr)}'>{delta_str(d_wr)}%</td><td>{d_icon(d_wr)}</td></tr>")
+            comp_rows.append(f"<tr><td><b>期末净值</b></td><td>{fn:.2f}</td><td>{nav_v2.get('final_nav',0):.2f}</td><td style='color:{d_color(d_fn)}'>{delta_str(d_fn)}</td><td>{d_icon(d_fn)}</td></tr>")
+            comp_rows.append(f"<tr style='background:#f5f5f5'><td><b>交易成本(V2)</b></td><td>-</td><td>{tc:.2f}</td><td colspan=2>V2扣除{self.engine_v2.cfg.trade_cost_bps:.0f}bps单边成本</td></tr>")
+
+            v2_section = (
+                "<h3>V1 vs V2 策略对比 (A/B Test)</h3>\n"
+                + "<p><b>V2优化项:</b> P0趋势过滤放宽(10日动量+SMA20容差0.5%) | "
+                + "P1动量加权分配 | P2最低仓位10% & 交易成本0.1% | DO NOT MODIFY</p>\n"
+                + "<table border=1 cellpadding=6 cellspacing=0 style='border-collapse:collapse;width:100%'>\n"
+                + "\n".join(comp_rows) + "\n</table>\n"
+            )
+
+        return v1_section + v2_section
 
     def _build_r2_rebalance(self, reports: list, price_data: dict) -> str:
         rows = []
