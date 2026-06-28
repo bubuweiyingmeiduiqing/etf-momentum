@@ -313,8 +313,19 @@ class ReportGenerator:
         if "510300" in price_data and price_data["510300"]:
             prices = sorted(price_data["510300"].items())
             if len(prices) >= 2:
-                bench_return = (prices[-1][1] - prices[0][1]) / prices[0][1] * 100
+                # Filter to period range for consistency with strategy_return
+                period_prices = [(d, p) for d, p in prices if period_start and d >= period_start]
+                if not period_prices:
+                    period_prices = prices
+                if len(period_prices) >= 2:
+                    bench_return = (period_prices[-1][1] - period_prices[0][1]) / period_prices[0][1] * 100
 
+        # Cumulative benchmark: inception to end
+        cumulative_bench_return = 0.0
+        if "510300" in price_data and price_data["510300"]:
+            all_prices = sorted(price_data["510300"].items())
+            if len(all_prices) >= 2:
+                cumulative_bench_return = (all_prices[-1][1] - all_prices[0][1]) / all_prices[0][1] * 100
         # Period return: from period_start to period_end
         period_return = ((nav - period_start_nav) / period_start_nav) * 100 if period_start_nav > 0 else 0
         # Cumulative return: from inception
@@ -337,7 +348,7 @@ class ReportGenerator:
             if std_ret > 0:
                 sharpe = (avg_ret / std_ret) * np.sqrt(252)
 
-        calmar = period_return / max_dd if max_dd > 0 else 0
+        calmar = cumulative_return / max_dd if max_dd > 0 else 0
 
         wins = sum(1 for r in daily_returns if r > 0)
         total = len(daily_returns)
@@ -358,6 +369,7 @@ class ReportGenerator:
             "strategy_return": round(period_return, 2),
             "cumulative_return": round(cumulative_return, 2),
             "benchmark_return": round(bench_return, 2),
+            "cumulative_benchmark_return": round(cumulative_bench_return, 2),
             "excess_return": round(period_return - bench_return, 2),
             "max_drawdown": round(max_dd, 2),
             "sharpe": round(sharpe, 2),
@@ -422,6 +434,7 @@ class ReportGenerator:
     def _build_r1_performance(self, nav: dict, start: str, end: str) -> str:
         sr = nav.get("strategy_return", 0)
         br = nav.get("benchmark_return", 0)
+        cbr = nav.get("cumulative_benchmark_return", 0)
         er = nav.get("excess_return", 0)
         md = nav.get("max_drawdown", 0)
         sh = nav.get("sharpe", 0)
@@ -438,11 +451,12 @@ class ReportGenerator:
 
         ex_color = "#1a7a1a" if er > 0 else "#b00020"
         dd_color = "#1a7a1a" if md < 5 else ("#e67e00" if md < 10 else "#b00020")
+        cex_color = "#1a7a1a" if cr > cbr else "#b00020"
 
         rows = []
         rows.append("<tr style='background:#0b5394;color:#fff'><th>\u6307\u6807</th><th>\u7b56\u7565\u503c</th><th>\u57fa\u51c6(\u6caa\u6df1300)</th><th>\u8d85\u989d</th><th>\u8bc4\u4ef7</th></tr>")
         cr = nav.get("cumulative_return", 0)
-        rows.append("<tr><td><b>\u7d2f\u8ba1\u6536\u76ca(\u81ea\u8d77\u59cb)</b></td><td style='color:" + ("#1a7a1a" if cr>0 else "#b00020") + "'>" + f"{cr:+.2f}%</td><td>{br:+.2f}%</td><td style='color:{ex_color}'>{er:+.2f}%</td><td>" + (GREEN if er>0 else RED) + (" \u8dd1\u8d62" if er>0 else " \u8dd1\u8f93") + "</td></tr>")
+        rows.append("<tr><td><b>\u7d2f\u8ba1\u6536\u76ca(\u81ea\u8d77\u59cb)</b></td><td style='color:" + ("#1a7a1a" if cr>0 else "#b00020") + "'>" + f"{cr:+.2f}%</td><td>{cbr:+.2f}%</td><td style='color:{cex_color}'>{cr-cbr:+.2f}%</td><td>" + (GREEN if cr>cbr else RED) + (" \u8dd1\u8d62" if cr>cbr else " \u8dd1\u8f93") + "</td></tr>")
         rows.append("<tr><td><b>\u672c\u5468\u6536\u76ca</b></td><td style='color:" + ("#1a7a1a" if sr>0 else "#b00020") + "'>" + f"{sr:+.2f}%</td><td>-</td><td>-</td><td></td></tr>")
         rows.append("<tr><td><b>\u6700\u5927\u56de\u64a4</b></td><td style='color:" + dd_color + "'>" + f"{md:.2f}%</td><td>-</td><td>-</td><td>" + (GREEN if md<5 else (WARN if md<10 else RED)) + (" \u4f18\u79c0" if md<5 else (" \u8b66\u6212" if md<10 else " \u5371\u9669")) + "</td></tr>")
         rows.append("<tr><td><b>\u590f\u666e\u6bd4\u7387</b></td><td>{:.2f}</td><td>-</td><td>-</td><td>".format(sh) + (GREEN if sh>1 else (WARN if sh>0 else RED)) + (" \u826f\u597d" if sh>1 else (" \u4e00\u822c" if sh>0 else " \u8d1f\u503c")) + "</td></tr>")
