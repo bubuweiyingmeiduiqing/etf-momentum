@@ -337,7 +337,7 @@ class ReportGenerator:
             if std_ret > 0:
                 sharpe = (avg_ret / std_ret) * np.sqrt(252)
 
-        calmar = strategy_return / max_dd if max_dd > 0 else 0
+        calmar = period_return / max_dd if max_dd > 0 else 0
 
         wins = sum(1 for r in daily_returns if r > 0)
         total = len(daily_returns)
@@ -358,7 +358,7 @@ class ReportGenerator:
             "strategy_return": round(period_return, 2),
             "cumulative_return": round(cumulative_return, 2),
             "benchmark_return": round(bench_return, 2),
-            "excess_return": round(strategy_return - bench_return, 2),
+            "excess_return": round(period_return - bench_return, 2),
             "max_drawdown": round(max_dd, 2),
             "sharpe": round(sharpe, 2),
             "calmar": round(calmar, 2),
