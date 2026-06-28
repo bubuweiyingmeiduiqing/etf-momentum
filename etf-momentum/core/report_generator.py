@@ -205,9 +205,9 @@ class ReportGenerator:
         all_reports.sort(key=lambda r: r.get("trade_date", ""))
         period_reports = [r for r in all_reports if start_date <= r.get("trade_date", "") <= end_date]
 
-        # Price data: need from earliest report for continuous NAV
-        earliest_date = all_reports[0].get("trade_date", "2026-01-01")
-        price_data = self._load_price_matrix(earliest_date, end_date)
+        # Price data: load ALL available history for NAV & market context
+        # Load ALL available price data (not limited by report dates)
+        price_data = self._load_price_matrix("2000-01-01", end_date)
 
         # Compute NAV from inception (continuous, not reset each week)
         nav_result = self._compute_strategy_nav(all_reports, price_data, start_date, end_date)
