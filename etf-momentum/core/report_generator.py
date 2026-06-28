@@ -451,11 +451,11 @@ class ReportGenerator:
 
         ex_color = "#1a7a1a" if er > 0 else "#b00020"
         dd_color = "#1a7a1a" if md < 5 else ("#e67e00" if md < 10 else "#b00020")
+        cr = nav.get("cumulative_return", 0)
         cex_color = "#1a7a1a" if cr > cbr else "#b00020"
 
         rows = []
         rows.append("<tr style='background:#0b5394;color:#fff'><th>\u6307\u6807</th><th>\u7b56\u7565\u503c</th><th>\u57fa\u51c6(\u6caa\u6df1300)</th><th>\u8d85\u989d</th><th>\u8bc4\u4ef7</th></tr>")
-        cr = nav.get("cumulative_return", 0)
         rows.append("<tr><td><b>\u7d2f\u8ba1\u6536\u76ca(\u81ea\u8d77\u59cb)</b></td><td style='color:" + ("#1a7a1a" if cr>0 else "#b00020") + "'>" + f"{cr:+.2f}%</td><td>{cbr:+.2f}%</td><td style='color:{cex_color}'>{cr-cbr:+.2f}%</td><td>" + (GREEN if cr>cbr else RED) + (" \u8dd1\u8d62" if cr>cbr else " \u8dd1\u8f93") + "</td></tr>")
         rows.append("<tr><td><b>\u672c\u5468\u6536\u76ca</b></td><td style='color:" + ("#1a7a1a" if sr>0 else "#b00020") + "'>" + f"{sr:+.2f}%</td><td>-</td><td>-</td><td></td></tr>")
         rows.append("<tr><td><b>\u6700\u5927\u56de\u64a4</b></td><td style='color:" + dd_color + "'>" + f"{md:.2f}%</td><td>-</td><td>-</td><td>" + (GREEN if md<5 else (WARN if md<10 else RED)) + (" \u4f18\u79c0" if md<5 else (" \u8b66\u6212" if md<10 else " \u5371\u9669")) + "</td></tr>")
