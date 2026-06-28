@@ -31,3 +31,7 @@ Thumbs.db
 # Cloud
 .env
 *.pem
+
+# Local scripts
+*.bat
+*.ps1
