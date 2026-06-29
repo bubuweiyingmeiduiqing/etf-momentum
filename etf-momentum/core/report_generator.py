@@ -133,6 +133,8 @@ class ReportGenerator:
 
         html = self.deepseek.chat(self.daily_system, user_prompt)
         self._save_daily_report(trade_date, result, data_input, html)
+        # Update rebalance tracking file
+        self._update_rebalance_history()
         if self.notifier:
             try:
                 self.notifier.send_daily_report(trade_date, html)
@@ -196,6 +198,69 @@ class ReportGenerator:
                 "vol_trigger": result.vol_trigger_active,
             }, cls=NumpyEncoder, ensure_ascii=False),
         )
+
+    def _update_rebalance_history(self):
+        """Export rebalance history to a human-readable markdown file."""
+        try:
+            import sqlite3, os
+            from datetime import datetime
+            db_path = self.config.get("database", {}).get("path", "data/etf_momentum.db")
+            conn = sqlite3.connect(db_path)
+            conn.row_factory = sqlite3.Row
+            rows = conn.execute(
+                "SELECT trade_date, position_advice FROM daily_reports "
+                "WHERE position_advice IS NOT NULL AND position_advice!='{}' "
+                "ORDER BY trade_date ASC"
+            ).fetchall()
+            conn.close()
+
+            lines = []
+            lines.append("# ETF动量策略 - 调仓记录追踪")
+            lines.append("# 更新时间: " + datetime.now().strftime("%Y-%m-%d %H:%M"))
+            lines.append("")
+
+            prev_holdings = None
+            for r in rows:
+                pos = json.loads(r["position_advice"] or "{}")
+                holdings = pos.get("holdings", [])
+                vol = pos.get("vol_trigger", False)
+                date = r["trade_date"]
+
+                mode = "[波动防御]" if vol else "[进攻模式]"
+                lines.append("## " + date + " " + mode)
+                lines.append("")
+                lines.append("| 排名 | 代码 | 名称 | 权重 | 得分 |")
+                lines.append("|------|------|------|------|------|")
+                for i, h in enumerate(holdings):
+                    lines.append("| " + str(i+1) + " | " + str(h.get("code","")) +
+                                 " | " + str(h.get("name","")) + " | " +
+                                 str(h.get("pct",0)) + "% | " +
+                                 str(h.get("score",0)) + " |")
+                lines.append("")
+
+                if prev_holdings:
+                    prev_codes = set(h.get("code", "") for h in prev_holdings)
+                    curr_codes = set(h.get("code", "") for h in holdings)
+                    added = curr_codes - prev_codes
+                    removed = prev_codes - curr_codes
+                    if added or removed:
+                        parts = []
+                        if added:
+                            parts.append("新增: " + ", ".join(sorted(added)))
+                        if removed:
+                            parts.append("移除: " + ", ".join(sorted(removed)))
+                        lines.append("> 变动: " + " | ".join(parts))
+                        lines.append("")
+                prev_holdings = holdings
+                lines.append("---")
+                lines.append("")
+
+            out_path = os.path.join(os.path.dirname(db_path), "rebalance_history.md")
+            with open(out_path, "w", encoding="utf-8") as f:
+                f.write("\n".join(lines))
+            logger.info("Rebalance history updated: %s (%d entries)", out_path, len(rows))
+        except Exception as e:
+            logger.warning("Update rebalance history failed: %s", e)
 
     def _save_review_report(self, start_date, end_date, review_type, html):
         self.db.insert_review_report(
