@@ -21,8 +21,8 @@ class SourceManager:
     def _init_sources(self):
         """Initialize all available sources in priority order."""
         self.sources = [
-            YFinanceSource(),    # priority 5 - Yahoo chart API, works from Tokyo
-            EastMoneySource(),   # priority 20 - lightweight HTTP fallback
+            EastMoneySource(),   # priority 5 - works well in China
+            YFinanceSource(),    # priority 20 - Yahoo fallback
             AKShareSource(),     # priority 30 - fallback
         ]
         self.sources.sort(key=lambda s: s.priority)

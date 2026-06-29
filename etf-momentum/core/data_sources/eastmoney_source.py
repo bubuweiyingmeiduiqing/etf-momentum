@@ -1,4 +1,4 @@
-"""EastMoney HTTP API - lightweight, often accessible from overseas."""
+﻿"""EastMoney HTTP API - lightweight, often accessible from overseas."""
 
 import json, logging, re
 from datetime import datetime
@@ -33,7 +33,8 @@ class EastMoneySource(DataSource):
             secid = self._to_secid(symbol)
             url = "https://push2.eastmoney.com/api/qt/stock/get"
             params = {
-                "secid": secid, "fields": "f43,f44,f45,f46,f47,f48,f50,f51,f52,f57,f58,f60,f116,f117,f170",
+                "secid": secid,
+                "fields": "f43,f44,f45,f46,f47,f48,f51,f52,f57,f58,f60,f170",
                 "ut": "fa5fd1943c7b386f172d6893dbbd4dc5",
             }
             resp = self.session.get(url, params=params, timeout=10)
@@ -42,17 +43,34 @@ class EastMoneySource(DataSource):
                 return None
             d = data["data"]
             now = datetime.now()
+            # f43=最新价(盘中,0=未开盘) f60=昨收(*1000) f51/f52=最高/最低(*1000)
+            close_val = self._safe_float(d.get("f43"))
+            prev_close = (self._safe_float(d.get("f60")) or 0) / 1000.0
+            if close_val is None or close_val <= 0:
+                close_val = prev_close
+            high_val = self._safe_float(d.get("f44"))
+            low_val = self._safe_float(d.get("f45"))
+            if (high_val is None or high_val <= 0):
+                h = self._safe_float(d.get("f51"))
+                high_val = (h / 1000.0) if h else None
+            if (low_val is None or low_val <= 0):
+                lv = self._safe_float(d.get("f52"))
+                low_val = (lv / 1000.0) if lv else None
+            open_val = self._safe_float(d.get("f46"))
+            if open_val is None or open_val <= 0:
+                open_val = prev_close
+            change_pct = self._safe_float(d.get("f170"))
             self.record_success()
             return {
                 "symbol": symbol, "name": d.get("f58", symbol),
                 "timestamp": now.strftime("%Y-%m-%d %H:%M:%S"),
-                "open": self._safe_float(d.get("f46")),
-                "high": self._safe_float(d.get("f44")),
-                "low": self._safe_float(d.get("f45")),
-                "close": self._safe_float(d.get("f43")),
+                "open": open_val,
+                "high": high_val,
+                "low": low_val,
+                "close": close_val,
                 "volume": self._safe_float(d.get("f47")),
                 "amount": self._safe_float(d.get("f48")),
-                "change_pct": self._safe_float(d.get("f170")),
+                "change_pct": change_pct,
                 "source": self.name,
             }
         except Exception as e:
