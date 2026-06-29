@@ -1,13 +1,13 @@
-【ETF量化日报 - 3段式精简版】
+【ETF量化日报 - 操作导向版】
 
 报告日期: {REPORT_DATE}    调仓日: {IS_REBALANCE_DAY}
 
 ============================================================
-输出规则(必须遵守):
-1. 下面每个 [PRECOMPUTED TABLE] 必须原样复制到输出，不改任何字符
-2. 你只写分析文字，放在对应表格的下方
-3. 禁止编造数字，禁止使用"表现良好"等模糊词
-4. 输出纯HTML片段，从第一张表格开始
+输出规则(必须严格遵守):
+1. 下面每个 [PRECOMPUTED TABLE] 必须原样复制，不改一个字符
+2. 分析文字放在对应表格下方，用HTML格式
+3. 禁止编造数字，禁止"表现良好""建议关注"等模糊词
+4. 操作建议必须具体到：时间、代码、金额
 ============================================================
 
 --- [PRECOMPUTED TABLE] 收盘数据 ---
@@ -18,19 +18,29 @@
 原样复制:
 {PRECOMPUTED_S2}
 
-在此下方用1-2句白话补充(不要用**加粗**,不要用列表):
-- 操作信号: 持仓不变 或 建议调仓
-- 调仓摘要: 延续x月x日建议，当前持仓xxx
-- 关键观察: 1句话点出最大风险
+在此下方输出操作段落(必须用HTML格式):
+
+<div style="background:#f0f4f8;border-left:5px solid #0b5394;padding:12px 16px;margin:12px 0">
+<h3 style="margin:0 0 8px 0;color:#0b5394">操作信号</h3>
+
+<p><b style="color:#b00020;font-size:16px">【调仓执行】</b> 建议在 <b style="font-size:15px">{REPORT_DATE} 开盘时</b> 执行以下操作：</p>
+<p>✦ <b>买入 {TOP1_CODE} {TOP1_NAME}</b>，分配 <b style="color:#1a7a1a">{TOP1_AMOUNT} 元</b>（{TOP1_PCT}）</p>
+<p>✦ <b>买入 {TOP2_CODE} {TOP2_NAME}</b>，分配 <b style="color:#1a7a1a">{TOP2_AMOUNT} 元</b>（{TOP2_PCT}）</p>
+<p style="color:#666;font-size:13px">📌 上期持仓：{PREV_HOLDINGS} → 本期调整为上述组合</p>
+
+<p style="margin-top:8px"><b>风险提示：</b> {RISK_NOTE}</p>
+</div>
 
 --- [PRECOMPUTED TABLE] 策略参数总览 ---
 原样复制:
 {PRECOMPUTED_S3}
 
-在此下方用3-5句分析(自然段落,不要列表,不要**):
-- 动量排名逻辑: 为什么第一? 收益驱动还是低波驱动?
-- 趋势过滤: 通过/未通过原因简要说明
-- 波动风险: ATR超过3.5%的品种预警
+在此下方输出分析段落(HTML格式，简洁有力):
 
-报告底部加:
-<p style="color:#888;font-size:12px;margin-top:20px;">本报告由量化模型自动生成,仅供研究参考,不构成投资建议。{REPORT_DATE}</p>
+<div style="margin:12px 0">
+<p><b>动量排名：</b>{MOMENTUM_ANALYSIS}</p>
+<p><b>趋势过滤：</b>{TREND_ANALYSIS}</p>
+<p><b>波动预警：</b>{VOL_ANALYSIS}</p>
+</div>
+
+<p style="color:#888;font-size:12px;margin-top:20px;">本报告由量化模型自动生成，{REPORT_DATE}，仅供研究参考，不构成投资建议。</p>

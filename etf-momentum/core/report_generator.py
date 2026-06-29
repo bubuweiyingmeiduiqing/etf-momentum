@@ -90,6 +90,41 @@ class ReportGenerator:
         user_prompt = user_prompt.replace("{PRECOMPUTED_S1}", formatted_data.get("s1_price", ""))
         user_prompt = user_prompt.replace("{PRECOMPUTED_S2}", formatted_data.get("s2_summary", ""))
         user_prompt = user_prompt.replace("{PRECOMPUTED_S3}", formatted_data.get("s3_strategy", ""))
+        # Pre-fill action-oriented placeholders from strategy result
+        holdings = result.target_holdings
+        if len(holdings) >= 1:
+            h1 = holdings[0]
+            user_prompt = user_prompt.replace("{TOP1_CODE}", h1.get("code",""))
+            user_prompt = user_prompt.replace("{TOP1_NAME}", h1.get("name",""))
+            user_prompt = user_prompt.replace("{TOP1_AMOUNT}", str(int(h1.get("target_value",0))))
+            user_prompt = user_prompt.replace("{TOP1_PCT}", str(h1.get("risk_parity_weight",0)) + "%")
+        if len(holdings) >= 2:
+            h2 = holdings[1]
+            user_prompt = user_prompt.replace("{TOP2_CODE}", h2.get("code",""))
+            user_prompt = user_prompt.replace("{TOP2_NAME}", h2.get("name",""))
+            user_prompt = user_prompt.replace("{TOP2_AMOUNT}", str(int(h2.get("target_value",0))))
+            user_prompt = user_prompt.replace("{TOP2_PCT}", str(h2.get("risk_parity_weight",0)) + "%")
+        # Previous holdings summary
+        prev_summary = "\u7a7a\u4ed3"
+        if prev_positions.get("has_positions"):
+            ph = prev_positions.get("holdings", [])
+            if ph:
+                prev_summary = ", ".join([h.get("name","") + " " + str(h.get("pct",0)) + "%" for h in ph])
+        user_prompt = user_prompt.replace("{PREV_HOLDINGS}", prev_summary)
+        # Current holdings
+        if holdings:
+            cur_summary = ", ".join([h.get("name","") + " " + str(h.get("risk_parity_weight",0)) + "%" for h in holdings])
+        else:
+            cur_summary = "\u7a7a\u4ed3"
+        user_prompt = user_prompt.replace("{CURRENT_HOLDINGS}", cur_summary)
+        # Risk note
+        if result.vol_trigger_active:
+            risk_note = "\u6ce2\u52a8\u7387\u89e6\u53d1\u9632\u5fa1\u6a21\u5f0f\uff0c\u5168\u8d44\u4ea7\u5e73\u5747ATR {:.1f}%\u8d853.5%\u9608\u503c\uff0c40%\u8f6c\u56fd\u503aETF".format(result.avg_pool_atr_pct)
+        else:
+            max_atr_etf = max(result.etfs, key=lambda e: e.atr_pct or 0) if result.etfs else None
+            risk_note = "\u6ce2\u52a8\u7387\u6b63\u5e38(\u5747ATR {:.1f}%)\uff0c\u6700\u5927ATR\u54c1\u79cd: {} {:.1f}%".format(result.avg_pool_atr_pct, max_atr_etf.code if max_atr_etf else "N/A", max_atr_etf.atr_pct or 0 if max_atr_etf else 0)
+        user_prompt = user_prompt.replace("{RISK_NOTE}", risk_note)
+
 
         for etf in result.etfs:
             placeholder = "{C_" + etf.code + "}"

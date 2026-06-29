@@ -1,80 +1,28 @@
 {
-  "_description": "ETF量化日报 - 基于v1-base.py策略的日频报告配置 v3.0",
-  "_version": "3.0",
-  "_usage": "面向6只ETF的动量轮动+趋势过滤+ATR风控策略，使用预计算HTML表格防止AI幻觉",
+  "_description": "ETF量化日报 - 操作导向版 v4.0",
+  "_version": "4.0",
   "model_config": {
     "suggested_model": "deepseek-chat",
     "temperature": 0.1,
     "max_tokens": 6144
   },
-  "strategy_overview": {
-    "name": "风险调整动量轮动 + 趋势过滤 + ATR波动率风控",
-    "etf_pool": {
-      "510500": {
-        "name": "中证500ETF",
-        "market": "A股",
-        "type": "宽基"
-      },
-      "510300": {
-        "name": "沪深300ETF",
-        "market": "A股",
-        "type": "宽基"
-      },
-      "513100": {
-        "name": "纳指ETF",
-        "market": "美股跨境",
-        "type": "跨境",
-        "premium_check": true
-      },
-      "513520": {
-        "name": "日经ETF",
-        "market": "日股跨境",
-        "type": "跨境",
-        "premium_check": true
-      },
-      "588000": {
-        "name": "科创50ETF",
-        "market": "A股",
-        "type": "行业"
-      },
-      "510050": {
-        "name": "上证50ETF",
-        "market": "A股",
-        "type": "宽基"
-      }
-    },
-    "capital": 100000,
-    "max_holdings": 2,
-    "single_max_weight": 0.5,
-    "bond_etf": "511010 国债ETF",
-    "defense_bond_pct": 0.4,
-    "rebalance_schedule": "每周一"
-  },
-  "scoring": {
-    "formula": "风险调整动量得分 = 20日收益率 / 20日波动率",
-    "ranking": "得分从高到低排序，取前2名",
-    "min_score": 0,
-    "description": "得分>0才可入选，负得分=绝对排除"
-  },
-  "filters": {
-    "trend_filter": "收盘价 > SMA20 且 SMA20方向不为下行",
-    "premium_filter": "跨境ETF溢价率 < 1.5%",
-    "vol_trigger": "全资产平均ATR > 3.5% → 40%转国债ETF防御"
-  },
-  "stops": {
-    "sma20_breach": "收盘价跌破SMA20",
-    "atr_trailing": "从入场后最高点回落3倍ATR",
-    "vol_defense": "平均ATR超3.5%强制减仓"
-  },
   "system_prompt": [
-    "你是顶级量化对冲基金的CSO(首席策略官)，负责每日生成ETF量化日报。",
+    "你是顶级量化对冲基金的CSO，负责每日生成ETF量化操作日报。",
     "",
     "核心原则:",
-    "1. 数据驱动：每个结论必须有统计数字支撑",
-    "2. 冷酷诚实：不粉饰亏损，不夸大收益",
-    "3. 建设性批判：发现问题必须明确指出",
-    "4. 过拟合警觉：警惕对历史数据的过度解读",
-    "5. 禁止使用模糊评价词：「表现良好」「表现不佳」「尚可」等一律禁用",
-    "6. 禁止编造任何数字：所有数据均来自下方预计算表格"
+    "1. 操作导向：每个分析段落的结论必须指向具体操作建议",
+    "2. 数据驱动：引用预计算表格中的具体数字",
+    "3. 冷酷诚实：不粉饰，不夸大",
+    "4. HTML格式输出：用<b>加粗重点</b>，用<span style='color:#b00020'>标注风险</span>",
+    "",
+    "输出格式(必须严格遵守):",
+    "1. 两个[PRECOMPUTED TABLE]必须原样复制",
+    "2. 在操作信号区(已有模板)，你只需补充风险提示的最后一句",
+    "3. 在分析段落区，用HTML <p><b>标签</b>内容</p>格式输出:",
+    "   - <b>动量排名：</b>说明第一名由什么驱动(收益/低波)，引用具体得分数字",
+    "   - <b>趋势过滤：</b>逐一说明通过/未通过原因，引用SMA20和收盘价数字",
+    "   - <b>波动预警：</b>指出ATR最高的品种及风险等级",
+    "4. 分析长度：每个要点1-2句话，直接有力",
+    "5. 禁止编造任何数字"
   ]
 }
